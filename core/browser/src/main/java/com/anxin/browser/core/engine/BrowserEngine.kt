@@ -47,6 +47,12 @@ interface BrowserEngine {
     /** 页面查找，返回首个匹配数（0 表示不可用）。 */
     fun findInPage(text: String): Int
 
+    /** 广告过滤开关（网络层拦截广告域名请求）。 */
+    fun setAdBlock(enabled: Boolean)
+
+    /** 阅读模式：抽取页面正文，回调 JSON（title/text），失败回调 null。 */
+    fun extractReadablePage(callback: (String?) -> Unit)
+
     /** 打印适配器（android.print.PrintDocumentAdapter）。 */
     fun createPrintAdapter(title: String): Any?
 

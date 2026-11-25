@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -134,7 +136,7 @@ fun AnxinNavHost() {
     val adBlock by graph.settings.adBlockEnabled.collectAsStateWithLifecycle(initialValue = true)
     val doNotTrack by graph.settings.doNotTrack.collectAsStateWithLifecycle(initialValue = true)
     val searchEngine by graph.settings.searchEngine.collectAsStateWithLifecycle(initialValue = Urls.DEFAULT_ENGINE)
-    val bookmarks by graph.settings.bookmarks.collectAsStateWithLifecycle(initialValue = emptyList())
+    val bookmarks by graph.bookmarksRepo.bookmarks.collectAsStateWithLifecycle(initialValue = emptyList())
     val showEngineBar by graph.settings.showEngineBar.collectAsStateWithLifecycle(initialValue = true)
     val textZoom by graph.settings.textZoomPercent.collectAsStateWithLifecycle(initialValue = 100)
     val desktopMode by graph.settings.desktopMode.collectAsStateWithLifecycle(initialValue = false)
@@ -149,9 +151,9 @@ fun AnxinNavHost() {
     val backgroundPlay by graph.settings.backgroundPlay.collectAsStateWithLifecycle(initialValue = true)
     val autoMiniWindow by graph.settings.autoMiniWindow.collectAsStateWithLifecycle(initialValue = false)
     val pipEnabled by graph.settings.pipEnabled.collectAsStateWithLifecycle(initialValue = true)
-    val history by graph.history.history.collectAsStateWithLifecycle(initialValue = emptyList())
+    val history by graph.bookmarksRepo.history.collectAsStateWithLifecycle(initialValue = emptyList())
+    val frequent by graph.bookmarksRepo.frequentlyVisited().collectAsStateWithLifecycle(initialValue = emptyList())
     val searches by graph.history.searches.collectAsStateWithLifecycle(initialValue = emptyList())
-    val frequent by graph.history.frequentlyVisited().collectAsStateWithLifecycle(initialValue = emptyList())
 
     var showMenu by remember { mutableStateOf(false) }
     var menuEditing by remember { mutableStateOf(false) }
@@ -161,6 +163,7 @@ fun AnxinNavHost() {
     var findText by remember { mutableStateOf("") }
     var showExitConfirm by remember { mutableStateOf(false) }
     var menuUrl by remember { mutableStateOf("") }
+    var readerJson by remember { mutableStateOf<String?>(null) }
 
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 
@@ -188,6 +191,7 @@ fun AnxinNavHost() {
         }
         prevDesktop = desktopMode
     }
+    LaunchedEffect(adBlock) { graph.engine.setAdBlock(adBlock) }
 
     // ---- 会话恢复 + 会话保存 ----
     var sessionReady by remember { mutableStateOf(false) }
@@ -246,7 +250,7 @@ fun AnxinNavHost() {
                     (tab.url.startsWith("https://") || tab.url.startsWith("http://"))
                 ) {
                     scope.launch {
-                        graph.settings.addBookmark(tab.title, tab.url)
+                        graph.bookmarksRepo.addBookmark(tab.title, tab.url)
                         toast("已添加书签")
                     }
                 } else toast("当前页面无法添加书签")
@@ -256,7 +260,20 @@ fun AnxinNavHost() {
                 if (exitConfirm) showExitConfirm = true
                 else context.findActivity()?.finish()
             }
-            "reading" -> toast("阅读模式开发中")
+            "reading" -> {
+                val tab = currentTab()
+                if (tab != null && tab.url.startsWith("http")) {
+                    toast("正在提取正文…")
+                    graph.engine.extractReadablePage { json ->
+                        val ok = json != null && runCatching {
+                            org.json.JSONObject(json).optString("text").length > 160
+                        }.getOrDefault(false)
+                        scope.launch {
+                            if (ok) readerJson = json else toast("正文识别失败，请刷新后重试")
+                        }
+                    }
+                } else toast("当前页面不支持阅读模式")
+            }
             "fullscreen" -> scope.launch {
                 graph.settings.setFullscreenMode(!fullscreenMode)
                 toast(if (!fullscreenMode) "全屏模式已开启" else "全屏模式已关闭")
@@ -306,7 +323,10 @@ fun AnxinNavHost() {
                 toast(if (path != null) "已保存离线网页" else "保存失败")
             }
             "textSize", "zoom" -> navigateTo(Routes.WEB_SETTINGS)
-            "admark" -> toast("广告标记开发中")
+            "admark" -> scope.launch {
+                graph.settings.setAdBlock(!adBlock)
+                toast(if (!adBlock) "广告过滤已开启" else "广告过滤已关闭")
+            }
             "print" -> {
                 val activity = context.findActivity()
                 val adapter = graph.engine.createPrintAdapter("安心浏览器文档")
@@ -556,7 +576,7 @@ fun AnxinNavHost() {
                 onOpen = { url -> openBrowser(url) },
                 onRemove = { url ->
                     scope.launch {
-                        graph.settings.removeBookmark(url)
+                        graph.bookmarksRepo.removeBookmark(url)
                         toast("已删除书签")
                     }
                 },
@@ -569,10 +589,12 @@ fun AnxinNavHost() {
                 entries = history,
                 onBack = { navController.popBackStack() },
                 onOpen = { url -> openBrowser(url) },
-                onRemove = { url -> graph.history.removeHistory(url) },
+                onRemove = { url -> scope.launch { graph.bookmarksRepo.removeHistory(url) } },
                 onClear = {
-                    graph.history.clearHistory()
-                    toast("已清空历史")
+                    scope.launch {
+                        graph.bookmarksRepo.clearHistory()
+                        toast("已清空历史")
+                    }
                 },
                 actions = actionsFor(back = { navController.popBackStack() }),
             )
@@ -651,6 +673,14 @@ fun AnxinNavHost() {
     }
 
     // ---- 全局弹层 ----
+
+    readerJson?.let { json ->
+        Box(Modifier.fillMaxSize()) {
+            com.anxin.browser.feature.reader.ReaderScreen(rawJson = json) {
+                readerJson = null
+            }
+        }
+    }
 
     if (showAddShortcut) {
         AddShortcutDialog(

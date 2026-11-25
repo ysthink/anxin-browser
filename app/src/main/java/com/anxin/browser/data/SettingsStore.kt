@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.anxin.browser.core.util.Urls
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "anxin_settings")
@@ -115,6 +116,13 @@ class SettingsStore(private val context: Context) {
             put(org.json.JSONArray().put(name).put(address))
         }
     }.toString()
+
+    /** 旧版书签导出（Room 迁移用）。 */
+    suspend fun exportBookmarks(): List<Pair<String, String>> =
+        context.dataStore.data.map { decodeBookmarks(it[Keys.bookmarks]) }.first()
+
+    /** 清空旧书签键（Room 迁移完成后调用）。 */
+    suspend fun clearBookmarksKey() = context.dataStore.edit { it.remove(Keys.bookmarks) }
 
     suspend fun setEngineBar(visible: Boolean) = context.dataStore.edit { it[Keys.engineBar] = visible }
 

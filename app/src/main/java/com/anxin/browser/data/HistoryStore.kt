@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -122,6 +123,15 @@ class HistoryStore(private val context: Context) {
 
     fun clearHistory() {
         scope.launch { context.historyDataStore.edit { it.remove(historyKey) } }
+    }
+
+    /** 旧版浏览历史导出（Room 迁移用）。 */
+    suspend fun exportHistory(): List<HistoryEntry> =
+        context.historyDataStore.data.map { decode(it[historyKey]) }.first()
+
+    /** 清空旧历史键（Room 迁移完成后调用）。 */
+    suspend fun clearLegacyHistoryKey() {
+        context.historyDataStore.edit { it.remove(historyKey) }
     }
 
     fun clearSearches() {

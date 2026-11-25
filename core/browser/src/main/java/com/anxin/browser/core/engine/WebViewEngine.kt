@@ -64,6 +64,27 @@ class WebViewEngine(
     private var textZoomPercent: Int = 100
     private var desktopMode: Boolean = false
     private var forceDark: Boolean = false
+    private var adBlockEnabled: Boolean = false
+
+    override fun setAdBlock(enabled: Boolean) {
+        adBlockEnabled = enabled
+    }
+
+    override fun extractReadablePage(callback: (String?) -> Unit) {
+        val view = views[_activeTabId.value] ?: run { callback(null); return }
+        view.evaluateJavascript(READER_SCRIPT) { result ->
+            // evaluateJavascript 返回的是 JSON 字面量（带外层引号/转义），先解一层
+            val decoded = runCatching {
+                val value = org.json.JSONTokener(result?.trim() ?: "null").nextValue()
+                when (value) {
+                    is String -> value
+                    org.json.JSONObject.NULL -> null
+                    else -> value?.toString()
+                }
+            }.getOrNull()
+            callback(decoded)
+        }
+    }
 
     override fun createTab(url: String, incognito: Boolean): BrowserTab {
         val id = UUID.randomUUID().toString()
@@ -333,6 +354,18 @@ class WebViewEngine(
                     true
                 }.getOrDefault(true)
             }
+
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: android.webkit.WebResourceRequest,
+            ): android.webkit.WebResourceResponse? {
+                if (!adBlockEnabled) return super.shouldInterceptRequest(view, request)
+                val host = try { Uri.parse(request.url.toString()).host.orEmpty() } catch (_: Exception) { "" }
+                if (host.isNotBlank() && AD_HOST_KEYWORDS.any { host.contains(it, ignoreCase = true) }) {
+                    return android.webkit.WebResourceResponse("text/plain", "utf-8", java.io.ByteArrayInputStream(ByteArray(0)))
+                }
+                return super.shouldInterceptRequest(view, request)
+            }
         }
 
         webView.webChromeClient = object : WebChromeClient() {
@@ -404,6 +437,16 @@ class WebViewEngine(
     }
 
     private companion object {
+        /** 常见广告/统计域名关键词（简单规则，后续 Chromium 网络栈可换 EasyList）。 */
+        val AD_HOST_KEYWORDS = listOf(
+            "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+            "google-analytics.com", "adservice.google", "adnxs.com", "adsrvr.org",
+            "criteo.com", "criteo.net", "moatads.com", "scorecardresearch.com",
+            "adview.cn", "admaster.com.cn", "tanx.com", "g.umeng.com", "umeng.co",
+            "clicki.cn", "cnzz.com", "baidu.com/hm.js", "pos.baidu.com",
+            "googletagmanager.com", "taboola.com", "outbrain.com", "ad.coln.cn",
+        )
+
         /**
          * 页面层嗅探脚本：监听 video/audio/source 与常见的媒体直链。
          * 后续接入内核层 Network Observer 后，可与此脚本互补覆盖更多站点。
@@ -436,6 +479,25 @@ class WebViewEngine(
           setTimeout(scan, 900);
           setTimeout(scan, 3000);
           document.addEventListener('click', function(){ setTimeout(scan, 1500); }, true);
+        })();
+        """
+
+        /** 阅读模式正文抽取：标题 + 长段落聚合，段落不足时回退整页文本，返回 JSON。 */
+        const val READER_SCRIPT = """
+        (function(){
+          try {
+            var paras = [];
+            var nodes = document.querySelectorAll('p, h1, h2, h3, h4, li, div[class*="para"], article');
+            for (var i = 0; i < nodes.length; i++) {
+              var t = (nodes[i].innerText || '').trim();
+              if (t.length >= 24) paras.push(t);
+            }
+            var text = paras.join('\n\n');
+            if (text.length < 400) {
+              text = (document.body.innerText || '').replace(/\n{3,}/g, '\n\n').slice(0, 20000);
+            }
+            return JSON.stringify({title: document.title || '', text: text.slice(0, 20000)});
+          } catch (e) { return null; }
         })();
         """
     }

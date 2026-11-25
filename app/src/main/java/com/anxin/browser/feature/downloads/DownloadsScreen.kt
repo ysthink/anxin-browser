@@ -1,5 +1,9 @@
 package com.anxin.browser.feature.downloads
 
+import android.content.Intent
+import android.os.Build
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -39,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,6 +61,64 @@ import com.anxin.browser.design.glassPanel
 import com.anxin.browser.ui.AnxinActionBar
 import com.anxin.browser.ui.NavActions
 import com.anxin.browser.ui.PageTitle
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/** 本地文件（系统下载库 MediaStore.Downloads）。 */
+data class LocalFile(
+    val uri: android.net.Uri,
+    val name: String,
+    val size: Long,
+    val dateAdded: Long,
+)
+
+internal fun queryLocalDownloads(context: android.content.Context): List<LocalFile> = runCatching {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyList()
+    val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+    val projection = arrayOf(
+        MediaStore.MediaColumns._ID,
+        MediaStore.MediaColumns.DISPLAY_NAME,
+        MediaStore.MediaColumns.SIZE,
+        MediaStore.MediaColumns.DATE_ADDED,
+    )
+    val files = mutableListOf<LocalFile>()
+    context.contentResolver.query(
+        collection,
+        projection,
+        null,
+        null,
+        "${MediaStore.MediaColumns.DATE_ADDED} DESC",
+    )?.use { cursor ->
+        val idCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+        val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+        val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+        val dateCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
+        while (cursor.moveToNext() && files.size < 120) {
+            val id = cursor.getLong(idCol)
+            files += LocalFile(
+                uri = android.content.ContentUris.withAppendedId(collection, id),
+                name = cursor.getString(nameCol) ?: "未命名",
+                size = cursor.getLong(sizeCol),
+                dateAdded = cursor.getLong(dateCol) * 1000L,
+            )
+        }
+    }
+    files
+}.getOrDefault(emptyList())
+
+internal fun openLocalFile(context: android.content.Context, file: LocalFile) {
+    runCatching {
+        val type = context.contentResolver.getType(file.uri) ?: "*/*"
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(file.uri, type)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }.onFailure {
+        Toast.makeText(context, "没有可打开此文件的应用", Toast.LENGTH_SHORT).show()
+    }
+}
 
 private data class DemoDownload(
     val name: String,
@@ -86,7 +150,12 @@ fun DownloadsScreen(
     actions: NavActions,
 ) {
     val palette = AnxinPalette
+    val context = LocalContext.current
     var segment by remember { mutableIntStateOf(0) }
+    val localFiles by produceState(initialValue = emptyList<LocalFile>(), key1 = Unit) {
+        value = queryLocalDownloads(context)
+    }
+    val dateFormat = remember { SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault()) }
     val running = items.filter {
         it.status == DownloadStatus.RUNNING || it.status == DownloadStatus.PENDING ||
             it.status == DownloadStatus.PAUSED
@@ -117,6 +186,7 @@ fun DownloadsScreen(
             ) {
                 GlassSegment("下载中 (${if (usingDemo) demoRunning.size else running.size})", segment == 0) { segment = 0 }
                 GlassSegment("已完成 (${if (usingDemo) demoFinished.size else finished.size})", segment == 1) { segment = 1 }
+                GlassSegment("本地文件 (${localFiles.size})", segment == 3) { segment = 3 }
                 GlassSegment("资源库", segment == 2) { segment = 2 }
             }
 
@@ -171,6 +241,41 @@ fun DownloadsScreen(
                     }
                 }
 
+                if (segment == 3) {
+                    if (localFiles.isEmpty()) {
+                        item {
+                            GlassPanel(radius = 22.dp, alpha = 0.55f) {
+                                Column {
+                                    Text("暂无本地文件", style = MaterialTheme.typography.titleMedium, color = palette.ink)
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        "下载完成后，文件会出现在系统下载库中，这里可直接打开。",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = palette.inkSecondary,
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        items(localFiles, key = { it.uri.toString() }) { file ->
+                            LocalFileRow(
+                                file = file,
+                                dateText = dateFormat.format(Date(file.dateAdded)),
+                                sizeText = formatBytes(file.size),
+                                onClick = { openLocalFile(context, file) },
+                            )
+                        }
+                        item {
+                            Text(
+                                "共 ${localFiles.size} 个本地文件（来源：系统下载库）",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = palette.inkTertiary,
+                                modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+                            )
+                        }
+                    }
+                }
+
                 if (segment == 2) {
                     item {
                         GlassPanel(radius = 22.dp, alpha = 0.55f) {
@@ -213,6 +318,48 @@ fun DownloadsScreen(
         AnxinActionBar(
             actions = actions,
             modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
+}
+
+@Composable
+private fun LocalFileRow(
+    file: LocalFile,
+    dateText: String,
+    sizeText: String,
+    onClick: () -> Unit,
+) {
+    val palette = AnxinPalette
+    val ext = file.name.substringAfterLast('.', "").uppercase().take(4)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassPanel(radius = 18.dp, alpha = 0.5f, shadowElevation = 8.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FileIcon(ext.ifBlank { "FILE" }, palette.brand, size = 36.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                file.name,
+                style = MaterialTheme.typography.titleSmall,
+                color = palette.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "$dateText · $sizeText",
+                style = MaterialTheme.typography.labelSmall,
+                color = palette.inkTertiary,
+            )
+        }
+        Icon(
+            Icons.Rounded.FolderOpen,
+            contentDescription = "打开",
+            tint = palette.brand,
+            modifier = Modifier.size(18.dp),
         )
     }
 }
