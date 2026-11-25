@@ -18,6 +18,7 @@ import com.anxin.browser.core.download.DownloadRepository
 import com.anxin.browser.core.model.BrowserTab
 import com.anxin.browser.core.model.MediaResource
 import com.anxin.browser.core.model.MediaType
+import com.anxin.browser.core.model.TabSession
 import com.anxin.browser.core.util.Urls
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -109,6 +110,38 @@ class WebViewEngine(
         return createTab(url)
     }
 
+    // 会话恢复时记录"待懒加载"的标签：选中时才真正 loadUrl。
+    private val unloadedUrls = LinkedHashMap<String, String>()
+
+    override fun restoreSession(sessions: List<TabSession>, activeIndex: Int): Boolean {
+        if (sessions.isEmpty()) return false
+        if (_tabs.value.isNotEmpty()) return false
+        val restored = mutableListOf<BrowserTab>()
+        sessions.forEach { session ->
+            if (session.url.startsWith("http://") || session.url.startsWith("https://")) {
+                val id = UUID.randomUUID().toString()
+                val webView = buildWebView(id, session.incognito)
+                views[id] = webView
+                restored += BrowserTab(
+                    id = id,
+                    url = session.url,
+                    isIncognito = session.incognito,
+                    webView = webView,
+                    lastActiveAt = System.currentTimeMillis(),
+                )
+            }
+        }
+        if (restored.isEmpty()) return false
+        val active = restored.getOrNull(activeIndex.coerceIn(0, restored.lastIndex)) ?: restored.first()
+        restored.forEach { tab ->
+            if (tab.id != active.id) unloadedUrls[tab.id] = tab.url
+        }
+        _tabs.value = restored
+        _activeTabId.value = active.id
+        views[active.id]?.loadUrl(active.url)
+        return true
+    }
+
     override fun closeAllIncognito() {
         _tabs.value.filter { it.isIncognito }.forEach { closeTab(it.id) }
         views.values.forEach { it.clearCache(true) }
@@ -119,6 +152,10 @@ class WebViewEngine(
             _activeTabId.value = tabId
             _tabs.value = _tabs.value.map {
                 if (it.id == tabId) it.copy(lastActiveAt = System.currentTimeMillis()) else it
+            }
+            // 会话恢复的标签：首次选中时懒加载
+            unloadedUrls.remove(tabId)?.let { url ->
+                views[tabId]?.loadUrl(url)
             }
         }
     }

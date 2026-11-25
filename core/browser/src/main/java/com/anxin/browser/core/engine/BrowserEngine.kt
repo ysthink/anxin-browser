@@ -2,6 +2,7 @@ package com.anxin.browser.core.engine
 
 import com.anxin.browser.core.model.BrowserTab
 import com.anxin.browser.core.model.MediaResource
+import com.anxin.browser.core.model.TabSession
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -57,6 +58,9 @@ interface BrowserEngine {
     /** 恢复最近关闭的标签（打开新标签），成功返回该标签。 */
     fun restoreLastClosed(): BrowserTab?
     val closedTabCount: Int
+
+    /** 进程重启后的会话恢复：重建标签但只加载 [activeIndex] 对应页，其余懒加载。 */
+    fun restoreSession(sessions: List<TabSession>, activeIndex: Int): Boolean
 
     fun clearMediaResources()
     fun clearBrowsingData()

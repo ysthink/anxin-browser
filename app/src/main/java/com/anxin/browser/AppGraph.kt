@@ -5,6 +5,7 @@ import com.anxin.browser.core.download.DownloadRepository
 import com.anxin.browser.core.engine.WebViewEngine
 import com.anxin.browser.data.ExtensionStore
 import com.anxin.browser.data.HistoryStore
+import com.anxin.browser.data.SessionStore
 import com.anxin.browser.data.SettingsStore
 import com.anxin.browser.data.ShortcutStore
 
@@ -14,6 +15,7 @@ import com.anxin.browser.data.ShortcutStore
 class AppGraph private constructor(context: Context) {
     val downloads: DownloadRepository = DownloadRepository(context.applicationContext)
     val history: HistoryStore = HistoryStore(context.applicationContext)
+    val session: SessionStore = SessionStore(context.applicationContext)
     val engine: WebViewEngine = WebViewEngine(
         context = context.applicationContext,
         downloads = downloads,

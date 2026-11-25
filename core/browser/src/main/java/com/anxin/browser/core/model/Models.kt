@@ -42,6 +42,12 @@ data class BrowserTab(
 
 enum class DownloadStatus { PENDING, RUNNING, PAUSED, SUCCESS, FAILED }
 
+/** 会话恢复单元：一个待恢复标签的最小信息。 */
+data class TabSession(
+    val url: String,
+    val incognito: Boolean = false,
+)
+
 data class DownloadItem(
     val id: Long,
     val fileName: String,

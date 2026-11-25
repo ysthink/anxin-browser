@@ -189,11 +189,27 @@ fun AnxinNavHost() {
         prevDesktop = desktopMode
     }
 
-    // 桌面快捷方式 / 外部链接打开
+    // ---- 会话恢复 + 会话保存 ----
+    var sessionReady by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        PendingLink.url?.let { url ->
-            PendingLink.url = null
-            if (url.startsWith("http")) openBrowser(url)
+        val saved = runCatching { graph.session.read() }.getOrNull()
+        if (saved != null && graph.engine.tabs.value.isEmpty()) {
+            graph.engine.restoreSession(saved.first, saved.second)
+        }
+        sessionReady = true
+    }
+    LaunchedEffect(tabs, activeTabId) {
+        if (!sessionReady) return@LaunchedEffect
+        runCatching { graph.session.save(tabs, activeTabId) }
+    }
+
+    // 桌面快捷方式 / 外部链接打开（前台冷热启动都覆盖）
+    val pendingLink by com.anxin.browser.PendingLink.url.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingLink) {
+        val url = pendingLink
+        if (!url.isNullOrBlank() && url.startsWith("http")) {
+            com.anxin.browser.PendingLink.url.value = null
+            openBrowser(url)
         }
     }
 

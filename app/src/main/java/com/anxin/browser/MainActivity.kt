@@ -14,8 +14,7 @@ import com.anxin.browser.nav.AnxinNavHost
 
 /** 跨入口（桌面快捷方式 / 外部链接）待打开的地址。 */
 object PendingLink {
-    @Volatile
-    var url: String? = null
+    val url = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
 }
 
 class MainActivity : ComponentActivity() {
@@ -43,6 +42,6 @@ class MainActivity : ComponentActivity() {
     private fun captureIntent(intent: Intent?) {
         val fromExtra = intent?.getStringExtra("open_url")
         val fromView = if (intent?.action == Intent.ACTION_VIEW) intent.dataString else null
-        PendingLink.url = fromExtra ?: fromView ?: PendingLink.url
+        (fromExtra ?: fromView)?.let { PendingLink.url.value = it }
     }
 }
