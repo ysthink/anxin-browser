@@ -129,17 +129,6 @@ private data class DemoDownload(
     val subtitle: String? = null,
 )
 
-private val demoRunning = listOf(
-    DemoDownload("大自然的奇迹_1080P.mp4", "68.5MB / 745.6MB", 0.09f, Color(0xFF4A6BFF), "MP4", "2.3MB/s"),
-    DemoDownload("文档资料.zip", "12.4MB / 50.0MB", 0.24f, Color(0xFFFF9F43), "ZIP", "1.1MB/s"),
-)
-
-private val demoFinished = listOf(
-    DemoDownload("壁纸合集.jpg", "3.2MB", 1f, Color(0xFF23C08A), "JPG"),
-    DemoDownload("旅行攻略.pdf", "1.8MB", 1f, Color(0xFFE1251B), "PDF"),
-    DemoDownload("离线音乐.m4a", "8.6MB", 1f, Color(0xFF7B5CFF), "M4A"),
-)
-
 @Composable
 fun DownloadsScreen(
     items: List<DownloadItem>,
@@ -163,7 +152,6 @@ fun DownloadsScreen(
     val finished = items.filter {
         it.status == DownloadStatus.SUCCESS || it.status == DownloadStatus.FAILED
     }
-    val usingDemo = items.isEmpty()
 
     AuroraBackground {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -184,8 +172,8 @@ fun DownloadsScreen(
                 modifier = Modifier.padding(horizontal = 18.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                GlassSegment("下载中 (${if (usingDemo) demoRunning.size else running.size})", segment == 0) { segment = 0 }
-                GlassSegment("已完成 (${if (usingDemo) demoFinished.size else finished.size})", segment == 1) { segment = 1 }
+                GlassSegment("下载中 (${running.size})", segment == 0) { segment = 0 }
+                GlassSegment("已完成 (${finished.size})", segment == 1) { segment = 1 }
                 GlassSegment("本地文件 (${localFiles.size})", segment == 3) { segment = 3 }
                 GlassSegment("资源库", segment == 2) { segment = 2 }
             }
@@ -198,8 +186,8 @@ fun DownloadsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (segment == 0) {
-                    if (usingDemo) {
-                        items(demoRunning) { DownloadCardDemo(it, onPause = { }) }
+                    if (running.isEmpty()) {
+                        item { EmptyTaskCard(title = "暂无下载任务", hint = "在网页中点击下载后，这里会显示真实任务进度。") }
                     } else {
                         items(running) { item ->
                             DownloadCard(
@@ -218,8 +206,10 @@ fun DownloadsScreen(
                             action = "更多",
                         )
                     }
-                    if (usingDemo) {
-                        items(demoFinished) { FileRow(it.name, it.sizeText, it.ext, it.color) }
+                    if (finished.isEmpty()) {
+                        if (segment == 1) {
+                            item { EmptyTaskCard(title = "暂无已完成任务", hint = "历史任务清空后不再显示。") }
+                        }
                     } else {
                         items(finished) { item ->
                             FileRow(
@@ -230,10 +220,9 @@ fun DownloadsScreen(
                             )
                         }
                     }
-                    item {
+                    if (finished.isNotEmpty()) item {
                         Text(
-                            if (usingDemo) "当前为演示数据：在网页中点击下载后，这里会显示真实任务进度。"
-                            else "共 ${finished.size} 个已完成任务",
+                            "共 ${finished.size} 个已完成任务",
                             style = MaterialTheme.typography.labelSmall,
                             color = palette.inkTertiary,
                             modifier = Modifier.padding(top = 6.dp, start = 4.dp),
@@ -416,45 +405,13 @@ private fun DownloadCard(item: DownloadItem, onPause: () -> Unit) {
 }
 
 @Composable
-private fun DownloadCardDemo(item: DemoDownload, onPause: () -> Unit) {
+private fun EmptyTaskCard(title: String, hint: String) {
     val palette = AnxinPalette
-    GlassPanel(
-        modifier = Modifier.fillMaxWidth(),
-        radius = 22.dp,
-        alpha = 0.58f,
-        shadowElevation = 14.dp,
-    ) {
+    GlassPanel(radius = 22.dp, alpha = 0.55f) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                FileIcon(item.ext, item.color)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(item.name, style = MaterialTheme.typography.titleSmall, color = palette.ink, maxLines = 1)
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        "${item.sizeText}   ${item.subtitle}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = palette.inkSecondary,
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.5f))
-                        .clickable(onClick = onPause),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Rounded.Pause,
-                        contentDescription = null,
-                        tint = palette.brandDeep,
-                        modifier = Modifier.size(15.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            ThinProgressBar(progress = item.progress)
+            Text(title, style = MaterialTheme.typography.titleMedium, color = palette.ink)
+            Spacer(Modifier.height(6.dp))
+            Text(hint, style = MaterialTheme.typography.bodyMedium, color = palette.inkSecondary)
         }
     }
 }
