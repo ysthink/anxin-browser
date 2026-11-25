@@ -4,11 +4,11 @@ import android.content.Context
 import com.anxin.browser.core.download.DownloadRepository
 import com.anxin.browser.core.engine.WebViewEngine
 import com.anxin.browser.data.BookmarksHistoryRepo
-import com.anxin.browser.data.ExtensionStore
 import com.anxin.browser.data.HistoryStore
 import com.anxin.browser.data.SessionStore
 import com.anxin.browser.data.SettingsStore
 import com.anxin.browser.data.ShortcutStore
+import com.anxin.browser.data.extension.ScriptExtensionBridge
 import kotlinx.coroutines.launch
 
 /**
@@ -26,9 +26,11 @@ class AppGraph private constructor(context: Context) {
         onVisit = { title, url -> bookmarksRepo.record(title, url) },
     )
     val shortcuts: ShortcutStore = ShortcutStore(context.applicationContext)
-    val extensions: ExtensionStore = ExtensionStore()
+    val extensions: ScriptExtensionBridge = ScriptExtensionBridge(context.applicationContext)
 
     init {
+        // 类扩展注入：内核按 URL 向桥层要脚本
+        engine.pageScriptProvider = { url -> extensions.scriptsFor(url) }
         // 一次性把旧 DataStore 书签/历史迁入 Room（幂等：IGNORE 冲突 + 完成后清旧键）
         bookmarksRepo.scope.launch {
             bookmarksRepo.migrateFrom(settings, history)

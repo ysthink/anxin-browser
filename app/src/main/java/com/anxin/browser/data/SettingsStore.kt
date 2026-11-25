@@ -43,6 +43,8 @@ class SettingsStore(private val context: Context) {
         val autoMiniWindow = booleanPreferencesKey("auto_mini_window")
         // 菜单布局：JSON 数组 [{id, visible}]
         val menuLayout = stringPreferencesKey("menu_layout_v1")
+        // 扩展中心：免责声明是否已确认
+        val extDisclaimer = booleanPreferencesKey("ext_disclaimer_shown")
     }
 
     val adBlockEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.adBlock] ?: true }
@@ -77,6 +79,9 @@ class SettingsStore(private val context: Context) {
 
     // 菜单布局
     val menuLayout: Flow<List<MenuEntry>> = context.dataStore.data.map { decodeMenu(it[Keys.menuLayout]) }
+
+    // 扩展中心
+    val extDisclaimerShown: Flow<Boolean> = context.dataStore.data.map { it[Keys.extDisclaimer] ?: false }
 
     private fun decodeMenu(raw: String?): List<MenuEntry> {
         val parsed = runCatching {
@@ -157,6 +162,8 @@ class SettingsStore(private val context: Context) {
         }
         prefs[Keys.menuLayout] = array.toString()
     }
+
+    suspend fun setExtDisclaimerShown() = context.dataStore.edit { it[Keys.extDisclaimer] = true }
 
     /** 恢复默认设置：清除所有持久化配置，保留用户数据（书签/历史/下载）。 */
     suspend fun resetAll() = context.dataStore.edit { it.clear() }

@@ -68,6 +68,7 @@ import com.anxin.browser.data.MenuEntry
 import com.anxin.browser.feature.browser.BrowserScreen
 import com.anxin.browser.feature.bookmarks.BookmarksScreen
 import com.anxin.browser.feature.downloads.DownloadsScreen
+import com.anxin.browser.feature.extensions.ExtensionsScreen
 import com.anxin.browser.feature.history.HistoryScreen
 import com.anxin.browser.feature.home.HomeScreen
 import com.anxin.browser.feature.incognito.IncognitoScreen
@@ -105,6 +106,7 @@ object Routes {
     const val SEARCH_SETTINGS = "search_settings"
     const val WEB_SETTINGS = "web_settings"
     const val PLAY_SETTINGS = "play_settings"
+    const val EXTENSIONS = "extensions"
 
     fun player(url: String): String =
         "player?url=" + URLEncoder.encode(url, "UTF-8")
@@ -164,6 +166,44 @@ fun AnxinNavHost() {
     var showExitConfirm by remember { mutableStateOf(false) }
     var menuUrl by remember { mutableStateOf("") }
     var readerJson by remember { mutableStateOf<String?>(null) }
+
+    // 扩展中心
+    val extensions by graph.extensions.observe().collectAsStateWithLifecycle()
+    val extDisclaimerShown by graph.settings.extDisclaimerShown.collectAsStateWithLifecycle(initialValue = true)
+
+    val extensionImportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val result = runCatching {
+                    val resolver = context.contentResolver
+                    val displayName = runCatching {
+                        resolver.query(
+                            uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),
+                            null, null, null,
+                        )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+                    }.getOrNull() ?: "extension_${System.currentTimeMillis()}"
+                    val dst = java.io.File(context.cacheDir, "ext_import.bin")
+                    resolver.openInputStream(uri)?.use { input ->
+                        dst.outputStream().use { output -> output.write(input.readBytes()) }
+                    }
+                    val imported = graph.extensions.importFromFile(dst.absolutePath, displayName)
+                    dst.delete()
+                    imported
+                }.getOrNull()
+                if (result != null) {
+                    android.widget.Toast.makeText(context, "已安装扩展：${result.name}", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    android.widget.Toast.makeText(
+                        context,
+                        "导入失败：需要 zip(manifest.json+script.js) 或 .user.js",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
 
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 
@@ -282,7 +322,7 @@ fun AnxinNavHost() {
                 graph.settings.setDesktopMode(!desktopMode)
                 toast(if (!desktopMode) "已切换为电脑版" else "已切换为手机版")
             }
-            "extensions" -> toast("扩展能力依赖 Chromium 内核，待接入")
+            "extensions" -> navigateTo(Routes.EXTENSIONS)
             "translate" -> {
                 if (tab != null && tab.url.startsWith("http")) {
                     openBrowser(
@@ -486,7 +526,7 @@ fun AnxinNavHost() {
                 onOpenPlaySettings = { navigateTo(Routes.PLAY_SETTINGS) },
                 onOpenSearchEngine = { showEnginePicker = true },
                 onOpenIncognito = { navigateTo(Routes.INCOGNITO) },
-                onOpenExtensions = { toast("扩展能力依赖 Chromium 内核，待接入") },
+                onOpenExtensions = { navigateTo(Routes.EXTENSIONS) },
                 onOpenDownloads = { navigateTo(Routes.DOWNLOADS) },
                 onOpenFeedback = { toast("反馈渠道：app@anxin.dev（占位）") },
                 onOpenAbout = { toast("安心浏览器 v0.2.0 · WebView 阶段") },
@@ -609,6 +649,20 @@ fun AnxinNavHost() {
                     graph.engine.clearMediaResources()
                     toast("已清空")
                 },
+                actions = actionsFor(back = { navController.popBackStack() }),
+            )
+        }
+
+        composable(Routes.EXTENSIONS) {
+            ExtensionsScreen(
+                extensions = extensions,
+                showDisclaimer = !extDisclaimerShown,
+                onBack = { navController.popBackStack() },
+                onImport = { extensionImportLauncher.launch("*/*") },
+                onToggle = { id, enabled -> scope.launch { graph.extensions.setEnabled(id, enabled) } },
+                onPin = { id, pinned -> scope.launch { graph.extensions.setPinned(id, pinned) } },
+                onDelete = { id -> scope.launch { graph.extensions.remove(id) } },
+                onDisclaimerAccept = { scope.launch { graph.settings.setExtDisclaimerShown() } },
                 actions = actionsFor(back = { navController.popBackStack() }),
             )
         }

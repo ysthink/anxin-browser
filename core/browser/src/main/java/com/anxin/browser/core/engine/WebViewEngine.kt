@@ -66,6 +66,12 @@ class WebViewEngine(
     private var forceDark: Boolean = false
     private var adBlockEnabled: Boolean = false
 
+    /**
+     * 扩展脚本提供者：返回该 URL 需要注入的用户脚本（类扩展）。
+     * 由 App 层（ScriptExtensionBridge）提供，内核不感知扩展实现。
+     */
+    var pageScriptProvider: ((url: String) -> List<String>)? = null
+
     override fun setAdBlock(enabled: Boolean) {
         adBlockEnabled = enabled
     }
@@ -331,6 +337,16 @@ class WebViewEngine(
                     )
                 }
                 view.evaluateJavascript(SNIFFER_SCRIPT, null)
+                // 类扩展注入（用户脚本，按站点匹配）
+                if (url != null) {
+                    pageScriptProvider?.let { provider ->
+                        runCatching {
+                            provider(url).forEach { script ->
+                                view.evaluateJavascript(script, null)
+                            }
+                        }
+                    }
+                }
                 if (!incognito && url != null) {
                     runCatching { onVisit(view.title ?: "", url) }
                 }
