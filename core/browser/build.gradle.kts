@@ -10,7 +10,7 @@ val useChromiumKernel = providers.gradleProperty("useChromiumKernel")
 
 android {
     namespace = "com.anxin.browser.core"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
@@ -33,7 +33,7 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.core:core-ktx:1.16.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     if (useChromiumKernel) {
         implementation(files(rootProject.file("libs/anxin_engine_aw.aar")))

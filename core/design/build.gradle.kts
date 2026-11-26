@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.anxin.browser.design"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
@@ -38,6 +38,6 @@ dependencies {
     api("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
-    api("androidx.core:core-ktx:1.13.1")
+    api("androidx.core:core-ktx:1.16.0")
     api("androidx.activity:activity-compose:1.9.3")
 }
