@@ -5,6 +5,10 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val useChromiumKernel = providers.gradleProperty("useChromiumKernel")
+    .map { it.equals("true", ignoreCase = true) }
+    .getOrElse(false)
+
 android {
     namespace = "com.anxin.browser"
     compileSdk = 34
@@ -15,6 +19,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("boolean", "USE_CHROMIUM_KERNEL", useChromiumKernel.toString())
     }
 
     buildTypes {
@@ -24,8 +29,18 @@ android {
         }
     }
 
+    sourceSets {
+        getByName("main") {
+            if (useChromiumKernel) {
+                jniLibs.srcDirs("src/chromium/jniLibs")
+                assets.srcDirs("src/chromium/assets")
+            }
+        }
+    }
+
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {

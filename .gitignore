@@ -8,3 +8,9 @@ captures/
 .cxx/
 *.apk
 *.aab
+.kotlin/
+
+# GN 生成的内核二进制产物（由 .workbuddy/build-aar.sh 拷贝，不入库）
+libs/*.aar
+app/src/chromium/jniLibs/
+app/src/chromium/assets/

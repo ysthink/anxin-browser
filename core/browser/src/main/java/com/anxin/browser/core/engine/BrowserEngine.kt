@@ -9,9 +9,9 @@ import kotlinx.coroutines.flow.StateFlow
  * 内核统一接口。
  *
  * 上层（UI / 标签 / 下载 / 嗅探）只依赖此接口，不依赖具体内核实现。
- * 当前提供 [WebViewEngine] 作为第一阶段实现；接入 Titanium / Chromium 时，
- * 只需新增一个实现类（内部通过 JNI / AndroidView 承载 CompositorView），
- * 其余业务代码无需改动。
+ * 当前提供 [WebViewEngine] 作为第一阶段实现；
+ * M3 阶段二提供 ChromiumEngine（AwContents 直嵌，自带 Chromium 内核随 APK 分发，
+ * 不依赖系统 WebView Provider），仅 AppGraph 一行切换。
  */
 interface BrowserEngine {
 

@@ -1,6 +1,6 @@
 package com.anxin.browser.core.model
 
-import android.webkit.WebView
+import android.view.View
 
 /** 媒体资源类型。 */
 enum class MediaType {
@@ -36,7 +36,7 @@ data class BrowserTab(
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
     val faviconUrl: String? = null,
-    val webView: WebView? = null,
+    val webView: View? = null,
     val lastActiveAt: Long = 0L,
 )
 
