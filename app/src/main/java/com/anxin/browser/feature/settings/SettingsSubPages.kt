@@ -466,3 +466,147 @@ fun PlaySettingsScreen(
         )
     }
 }
+
+// ---------------------------------------------------------------------------
+// 关于
+// ---------------------------------------------------------------------------
+
+@Composable
+fun AboutScreen(
+    onBack: () -> Unit,
+    onCheckUpdate: () -> Unit,
+    onPrivacy: () -> Unit,
+    onLicenses: () -> Unit,
+) {
+    val palette = AnxinPalette
+    val webViewVersion = remember {
+        runCatching { android.webkit.WebView.getCurrentWebViewPackage()?.versionName }.getOrNull()
+    }
+    val kernelLabel = if (com.anxin.browser.BuildConfig.USE_CHROMIUM_KERNEL) {
+        "自研 Chromium 内核"
+    } else {
+        "系统 WebView" + (webViewVersion?.let { " $it" } ?: "")
+    }
+
+    SubPageScaffold(title = "关于", onBack = onBack) {
+        // 品牌区
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassPanel(radius = 24.dp, alpha = 0.62f, shadowElevation = 16.dp)
+                .padding(horizontal = 18.dp, vertical = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Image(
+                painter = painterResource(R.mipmap.ic_launcher),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(RoundedCornerShape(18.dp)),
+            )
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text("安心浏览器", style = MaterialTheme.typography.titleLarge, color = palette.ink)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "v${com.anxin.browser.BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = palette.inkSecondary,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "更安全 · 更流畅 · 更好用",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = palette.inkTertiary,
+                )
+            }
+        }
+
+        SettingsGroup("版本信息") {
+            AboutRow("版本号", "v${com.anxin.browser.BuildConfig.VERSION_NAME}（${com.anxin.browser.BuildConfig.VERSION_CODE}）")
+            divider()
+            AboutRow("渲染内核", kernelLabel)
+            if (com.anxin.browser.BuildConfig.USE_CHROMIUM_KERNEL) {
+                divider()
+                AboutRow("内核架构", com.anxin.browser.BuildConfig.KERNEL_ABI)
+            }
+            divider()
+            AboutRow("构建类型", com.anxin.browser.BuildConfig.BUILD_TYPE)
+        }
+
+        SettingsGroup("隐私与数据") {
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Text(
+                    "书签、历史、下载记录均保存在本机；无痕标签关闭后不落盘。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = palette.inkSecondary,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "应用不收集浏览内容，不含第三方统计 SDK。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = palette.inkSecondary,
+                )
+            }
+            divider()
+            AboutActionRow("隐私说明") { onPrivacy() }
+        }
+
+        SettingsGroup("开源许可") {
+            AboutActionRow("开源组件与许可") { onLicenses() }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onCheckUpdate)
+                .padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                "检查更新",
+                style = MaterialTheme.typography.titleSmall,
+                color = palette.brand,
+            )
+        }
+
+        Text(
+            "© 2026 安心浏览器 · 保留所有权利",
+            style = MaterialTheme.typography.labelSmall,
+            color = palette.inkTertiary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 20.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun AboutRow(label: String, value: String) {
+    val palette = AnxinPalette
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.titleSmall, color = palette.ink, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.labelMedium, color = palette.inkSecondary)
+    }
+}
+
+@Composable
+private fun AboutActionRow(label: String, onClick: () -> Unit) {
+    val palette = AnxinPalette
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.titleSmall, color = palette.ink, modifier = Modifier.weight(1f))
+        Text("›", style = MaterialTheme.typography.titleMedium, color = palette.inkTertiary)
+    }
+}

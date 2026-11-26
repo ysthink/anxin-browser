@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -9,6 +11,24 @@ val useChromiumKernel = providers.gradleProperty("useChromiumKernel")
     .map { it.equals("true", ignoreCase = true) }
     .getOrElse(false)
 
+// 内核版按 ABI 出包：so 与 V8 快照都跟架构绑定（同名 snapshot_blob_64.bin 内容不同），
+// 一个 APK 里塞两套会到 600MB+，所以用 -PkernelAbi=<abi> 指定单一架构。
+// 用法：
+//   ./gradlew :app:assembleDebug -PuseChromiumKernel=true -PkernelAbi=x86_64
+//   ./gradlew :app:assembleDebug -PuseChromiumKernel=true -PkernelAbi=arm64-v8a
+// 切换内核/默认、切换 ABI 时请先 :app:clean —— AGP 的增量资源合并不会剔除
+// 已移除的 assets/jniLibs 源目录，会留下上一轮的 so/pak。
+val kernelAbi = providers.gradleProperty("kernelAbi").orNull
+
+// 发布签名：keystore.properties 不入库，只在本地/CI 提供。
+// 缺失时 release 构建回落到 debug 签名，保证协同开发也能出包。
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.inputStream().use { stream -> keystoreProps.load(stream) }
+}
+val hasReleaseKeystore = keystoreProps.getProperty("storeFile") != null
+
 android {
     namespace = "com.anxin.browser"
     compileSdk = 36
@@ -17,15 +37,37 @@ android {
         applicationId = "com.anxin.browser"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "0.3.0"
         buildConfigField("boolean", "USE_CHROMIUM_KERNEL", useChromiumKernel.toString())
+        buildConfigField("String", "KERNEL_ABI", "\"${kernelAbi ?: "universal"}\"")
+        if (useChromiumKernel && kernelAbi != null) {
+            ndk { abiFilters += kernelAbi }
+        }
+    }
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -34,6 +76,10 @@ android {
             if (useChromiumKernel) {
                 jniLibs.srcDirs("src/chromium/jniLibs")
                 assets.srcDirs("src/chromium/assets")
+                // 每架构一份 V8 快照，文件名相同、内容不同
+                if (kernelAbi != null) {
+                    assets.srcDirs("src/chromium/assets-$kernelAbi")
+                }
             }
         }
     }

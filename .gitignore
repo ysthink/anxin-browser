@@ -14,3 +14,9 @@ captures/
 libs/*.aar
 app/src/chromium/jniLibs/
 app/src/chromium/assets/
+app/src/chromium/assets-*/
+
+# 发布签名（本地持有）
+keystore.properties
+*.jks
+*.keystore

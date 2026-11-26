@@ -80,6 +80,7 @@ import com.anxin.browser.feature.media.MediaScreen
 import com.anxin.browser.feature.newtab.NewTabScreen
 import com.anxin.browser.feature.player.DEMO_STREAM_URL
 import com.anxin.browser.feature.player.PlayerScreen
+import com.anxin.browser.feature.settings.AboutScreen
 import com.anxin.browser.feature.settings.HomeSettingsScreen
 import com.anxin.browser.feature.settings.PlaySettingsScreen
 import com.anxin.browser.feature.settings.SearchSettingsScreen
@@ -111,6 +112,7 @@ object Routes {
     const val WEB_SETTINGS = "web_settings"
     const val PLAY_SETTINGS = "play_settings"
     const val EXTENSIONS = "extensions"
+    const val ABOUT = "about"
 
     fun player(url: String): String =
         "player?url=" + URLEncoder.encode(url, "UTF-8")
@@ -535,7 +537,7 @@ fun AnxinNavHost() {
                 onOpenExtensions = { navigateTo(Routes.EXTENSIONS) },
                 onOpenDownloads = { navigateTo(Routes.DOWNLOADS) },
                 onOpenFeedback = { toast("反馈渠道：app@anxin.dev（占位）") },
-                onOpenAbout = { toast("安心浏览器 v0.2.0 · WebView 阶段") },
+                onOpenAbout = { navigateTo(Routes.ABOUT) },
                 onResetDefaults = {
                     scope.launch {
                         graph.settings.resetAll()
@@ -656,6 +658,19 @@ fun AnxinNavHost() {
                     toast("已清空")
                 },
                 actions = actionsFor(back = { navController.popBackStack() }),
+            )
+        }
+
+        composable(Routes.ABOUT) {
+            AboutScreen(
+                onBack = { navController.popBackStack() },
+                onCheckUpdate = { toast("当前已是最新版本 v0.3.0") },
+                onPrivacy = {
+                    toast("书签/历史/下载仅存本机，无痕关闭即清空")
+                },
+                onLicenses = {
+                    toast("Chromium BSD-3 · AndroidX/Compose Apache-2.0 · Room Apache-2.0")
+                },
             )
         }
 
