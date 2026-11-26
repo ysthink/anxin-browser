@@ -19,13 +19,15 @@ import kotlin.random.Random
 @Composable
 fun AuroraBackground(
     modifier: Modifier = Modifier,
-    dark: Boolean = false,
+    /** null = 跟随全局主题；true/false = 强制指定（无痕页强制深色）。 */
+    dark: Boolean? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val palette = AnxinPalette
+    val useDark = dark ?: isAnxinDark
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(Modifier.fillMaxSize()) {
-            if (dark) {
+            if (useDark) {
                 drawRect(
                     Brush.verticalGradient(
                         0f to Color(0xFF171034),

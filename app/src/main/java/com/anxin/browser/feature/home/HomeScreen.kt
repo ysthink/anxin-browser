@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Search
@@ -55,6 +56,7 @@ import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.AuroraBackground
 import com.anxin.browser.design.GlassPanel
 import com.anxin.browser.design.glassPanel
+import com.anxin.browser.design.isAnxinDark
 import com.anxin.browser.ui.AnxinActionBar
 import com.anxin.browser.ui.NavActions
 
@@ -109,14 +111,24 @@ fun HomeScreen(
                 Modifier
                     .fillMaxSize()
                     .background(
-                        Brush.verticalGradient(
-                            0f to Color(0xFF2146B8).copy(alpha = 0.35f),
-                            0.22f to Color(0xFF3D6BFF).copy(alpha = 0.12f),
-                            0.44f to Color.Transparent,
-                            0.58f to palette.pageMid.copy(alpha = 0.86f),
-                            0.72f to palette.pageMid,
-                            1f to palette.pageBottom,
-                        )
+                        if (isAnxinDark) {
+                            Brush.verticalGradient(
+                                0f to Color(0xFF0B0A1F).copy(alpha = 0.74f),
+                                0.28f to Color(0xFF171034).copy(alpha = 0.52f),
+                                0.52f to palette.pageMid.copy(alpha = 0.90f),
+                                0.74f to palette.pageMid,
+                                1f to palette.pageBottom,
+                            )
+                        } else {
+                            Brush.verticalGradient(
+                                0f to Color(0xFF2146B8).copy(alpha = 0.35f),
+                                0.22f to Color(0xFF3D6BFF).copy(alpha = 0.12f),
+                                0.44f to Color.Transparent,
+                                0.58f to palette.pageMid.copy(alpha = 0.86f),
+                                0.72f to palette.pageMid,
+                                1f to palette.pageBottom,
+                            )
+                        }
                     ),
             )
 
@@ -248,6 +260,8 @@ fun HomeScreen(
                 }
 
                 Spacer(Modifier.weight(1f))
+                PrivacyFooter()
+                Spacer(Modifier.height(108.dp))
             }
 
             AnxinActionBar(
@@ -356,6 +370,31 @@ private fun ShortcutItem(
 }
 
 @Composable
+private fun PrivacyFooter() {
+    val palette = AnxinPalette
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 30.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Rounded.Lock,
+            contentDescription = null,
+            tint = palette.inkTertiary,
+            modifier = Modifier.size(13.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            "本地数据 · 不上传浏览记录",
+            style = MaterialTheme.typography.labelSmall,
+            color = palette.inkTertiary,
+        )
+    }
+}
+
+@Composable
 private fun AddShortcutItem(onClick: () -> Unit) {
     val palette = AnxinPalette
     Column(
@@ -368,13 +407,15 @@ private fun AddShortcutItem(onClick: () -> Unit) {
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color.White.copy(alpha = 0.62f)),
+                .background(
+                    if (isAnxinDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.62f)
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Rounded.Add,
                 contentDescription = "添加快捷入口",
-                tint = palette.brand,
+                tint = if (isAnxinDark) Color.White else palette.brand,
                 modifier = Modifier.size(23.dp),
             )
         }

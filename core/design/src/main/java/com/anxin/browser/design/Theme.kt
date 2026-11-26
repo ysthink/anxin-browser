@@ -3,6 +3,7 @@ package com.anxin.browser.design
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -37,22 +38,47 @@ data class AnxinColors(
     val pageTop: Color = Color(0xFFDCE8FF),
     val pageMid: Color = Color(0xFFEDF2FF),
     val pageBottom: Color = Color(0xFFF7F2FF),
+    val surface: Color = Color(0xFFF7F9FF),
+    val surfaceMuted: Color = Color(0xFFEEF3FC),
+    val field: Color = Color(0xFFF2F5FC),
+    val divider: Color = Color(0x140D1730),
+    val onAccent: Color = Color.White,
+    val scrim: Color = Color(0x990A0A1F),
+    val glassHighlight: Color = Color(0x66FFFFFF),
 )
 
-@Immutable
-data class AnxinDarkColors(
-    val brand: Color = Color(0xFF7C9BFF),
-    val violet: Color = Color(0xFF9D7BFF),
-    val ink: Color = Color(0xFFF2F5FF),
-    val inkSecondary: Color = Color(0xFFB9C4E0),
-    val pageTop: Color = Color(0xFF120E2A),
-    val pageMid: Color = Color(0xFF241A4A),
-    val pageBottom: Color = Color(0xFF0B0A1F),
-    val glassTint: Color = Color(0xFFFFFFFF),
+/**
+ * 深色令牌沿用 [AnxinColors] 同一类型，所有以 `AnxinPalette.xxx` 取色的组件
+ * 无需改动即可跟随主题。深色下的 brandDeep 用作文字色，因此比亮色模式更亮。
+ */
+private val AnxinDarkPalette = AnxinColors(
+    brand = Color(0xFF8FA8FF),
+    brandDeep = Color(0xFFBDD0FF),
+    brandSoft = Color(0xFF6479D6),
+    violet = Color(0xFFA98BFF),
+    cyan = Color(0xFF6BD9FF),
+    ink = Color(0xFFF2F5FF),
+    inkSecondary = Color(0xFFBBC6E2),
+    inkTertiary = Color(0xFF8B98B8),
+    positive = Color(0xFF46DBAC),
+    warning = Color(0xFFFFB46B),
+    danger = Color(0xFFFF7B80),
+    glassTint = Color(0xFF2A2350),
+    hairline = Color(0x40FFFFFF),
+    pageTop = Color(0xFF120E2A),
+    pageMid = Color(0xFF241A4A),
+    pageBottom = Color(0xFF0B0A1F),
+    surface = Color(0xFF241E44),
+    surfaceMuted = Color(0xFF2E2654),
+    field = Color(0x1FFFFFFF),
+    divider = Color(0x26FFFFFF),
+    onAccent = Color(0xFF0B0A1F),
+    scrim = Color(0xC20A0818),
+    glassHighlight = Color(0x2EFFFFFF),
 )
 
 val LocalAnxinColors = staticCompositionLocalOf { AnxinColors() }
-val LocalAnxinDarkColors = staticCompositionLocalOf { AnxinDarkColors() }
+val LocalAnxinDarkMode = staticCompositionLocalOf { false }
 
 /** 统一圆角 / 间距令牌。 */
 object AnxinShapes {
@@ -84,25 +110,70 @@ fun AnxinTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val colors = AnxinColors()
-    val scheme = lightColorScheme(
-        primary = colors.brand,
-        onPrimary = Color.White,
-        secondary = colors.violet,
-        background = colors.pageMid,
-        surface = Color.White,
-        onSurface = colors.ink,
-        onSurfaceVariant = colors.inkSecondary,
-    )
-    CompositionLocalProvider(LocalAnxinColors provides colors) {
-        MaterialTheme(
-            colorScheme = scheme,
-            typography = AnxinTypography,
-            content = content,
+    val colors = if (darkTheme) AnxinDarkPalette else AnxinColors()
+    val scheme = if (darkTheme) {
+        darkColorScheme(
+            primary = colors.brand,
+            onPrimary = Color(0xFF0B0A1F),
+            secondary = colors.violet,
+            background = colors.pageMid,
+            surface = colors.surface,
+            surfaceVariant = colors.surfaceMuted,
+            onSurface = colors.ink,
+            onSurfaceVariant = colors.inkSecondary,
+            error = colors.danger,
+            outline = colors.divider,
         )
+    } else {
+        lightColorScheme(
+            primary = colors.brand,
+            onPrimary = Color.White,
+            secondary = colors.violet,
+            background = colors.pageMid,
+            surface = colors.surface,
+            surfaceVariant = colors.surfaceMuted,
+            onSurface = colors.ink,
+            onSurfaceVariant = colors.inkSecondary,
+            error = colors.danger,
+            outline = colors.divider,
+        )
+    }
+    CompositionLocalProvider(
+        LocalAnxinColors provides colors,
+        LocalAnxinDarkMode provides darkTheme,
+    ) {
+        MaterialTheme(colorScheme = scheme, typography = AnxinTypography) {
+            // 夜间模式全局生效；播放器 / 无痕等沉浸页可在内层再覆盖。
+            SystemBarsAppearance(lightIcons = darkTheme)
+            content()
+        }
     }
 }
 
 /** 便捷访问器。 */
 val AnxinPalette: AnxinColors
     @Composable get() = LocalAnxinColors.current
+
+/** 当前是否处于深色主题，供需要走深色分支的组件读取。 */
+val isAnxinDark: Boolean
+    @Composable get() = LocalAnxinDarkMode.current
+
+/** 语义化表面色。[dark] 可覆盖全局主题，供无痕 / 播放器等强制深色页使用。 */
+@Composable
+fun anxinSurface(dark: Boolean = isAnxinDark): Color =
+    if (dark) Color(0xFF241E44) else Color(0xFFF7F9FF)
+
+@Composable
+fun anxinSurfaceMuted(dark: Boolean = isAnxinDark): Color =
+    if (dark) Color(0xFF302856) else Color(0xFFEEF3FC)
+
+@Composable
+fun anxinField(dark: Boolean = isAnxinDark): Color =
+    if (dark) Color(0x29FFFFFF) else Color(0xFFF1F5FC)
+
+@Composable
+fun anxinDivider(dark: Boolean = isAnxinDark): Color =
+    if (dark) Color(0x29FFFFFF) else Color(0x140D1730)
+
+@Composable
+fun anxinOnAccent(): Color = Color.White

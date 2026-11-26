@@ -33,12 +33,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.anxin.browser.core.util.Urls
+import com.anxin.browser.design.AnxinEmptyState
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.AuroraBackground
+import com.anxin.browser.design.anxinField
 import com.anxin.browser.design.GlassIconButton
 import com.anxin.browser.design.glassPanel
 import com.anxin.browser.ui.AnxinActionBar
@@ -75,21 +76,12 @@ fun BookmarksScreen(
 
             if (sorted.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Rounded.BookmarkBorder,
-                            contentDescription = null,
-                            tint = palette.brand,
-                            modifier = Modifier.size(56.dp),
-                        )
-                        Spacer(Modifier.height(14.dp))
-                        Text("还没有书签", style = MaterialTheme.typography.titleMedium, color = palette.ink)
-                        Text(
-                            "在网页菜单中选择「添加书签」",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = palette.inkTertiary,
-                        )
-                    }
+                    AnxinEmptyState(
+                        icon = Icons.Rounded.BookmarkBorder,
+                        title = "还没有书签",
+                        hint = "在网页菜单中选择「添加书签」，常看的站点会汇总在这里。",
+                        modifier = Modifier.padding(horizontal = 18.dp),
+                    )
                 }
             } else {
                 LazyColumn(
@@ -110,7 +102,7 @@ fun BookmarksScreen(
                                 modifier = Modifier
                                     .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.72f)),
+                                    .background(anxinField()),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
@@ -136,14 +128,20 @@ fun BookmarksScreen(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                             }
-                            Icon(
-                                Icons.Rounded.Delete,
-                                contentDescription = "长按删除书签",
-                                tint = palette.inkTertiary.copy(alpha = 0.6f),
+                            Box(
                                 modifier = Modifier
-                                    .size(17.dp)
+                                    .size(32.dp)
+                                    .clip(CircleShape)
                                     .clickable { onRemove(url) },
-                            )
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = "删除书签",
+                                    tint = palette.inkTertiary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                         }
                     }
                 }

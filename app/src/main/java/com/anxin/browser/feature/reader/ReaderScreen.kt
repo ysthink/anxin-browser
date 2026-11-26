@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.glassPanel
+import com.anxin.browser.design.isAnxinDark
 
 /**
  * 阅读模式：从内核抽取的正文渲染成干净的排版视图。
@@ -56,7 +57,7 @@ fun ReaderScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(Color(0xFFFBFBF8)),
+            .background(if (isAnxinDark) Color(0xFF141027) else Color(0xFFFBFBF8)),
     ) {
         Row(
             modifier = Modifier

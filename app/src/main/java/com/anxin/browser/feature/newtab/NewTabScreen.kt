@@ -4,6 +4,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,7 +52,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +62,7 @@ import com.anxin.browser.core.util.Urls
 import com.anxin.browser.data.HistoryEntry
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.AuroraBackground
+import com.anxin.browser.design.anxinField
 import com.anxin.browser.design.GlassIconButton
 import com.anxin.browser.design.GlassPanel
 import com.anxin.browser.design.IconBubble
@@ -138,8 +140,8 @@ fun NewTabScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(Color.White.copy(alpha = 0.6f))
-                            .clickable(onClick = onPickEngine)
+                        .background(anxinField())
+                        .clickable(onClick = onPickEngine)
                             .padding(horizontal = 14.dp, vertical = 7.dp),
                     ) {
                         Icon(
@@ -174,6 +176,7 @@ fun NewTabScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 18.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -208,7 +211,7 @@ fun NewTabScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(50))
-                                        .background(Color.White.copy(alpha = 0.62f))
+                                        .background(anxinField())
                                         .clickable { onSubmit(term) }
                                         .padding(horizontal = 12.dp, vertical = 7.dp),
                                 ) {
@@ -349,7 +352,7 @@ private fun AssistChip(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(Color.White.copy(alpha = 0.58f))
+            .background(anxinField())
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 7.dp),
     ) {
@@ -393,7 +396,7 @@ private fun EmptyHint(text: String, onClick: (() -> Unit)? = null) {
     Text(
         text,
         style = MaterialTheme.typography.labelMedium,
-        color = palette.inkTertiary,
+        color = palette.inkSecondary,
         modifier = Modifier
             .padding(horizontal = 4.dp, vertical = 2.dp)
             .clickable(enabled = onClick != null, onClick = { onClick?.invoke() }),
@@ -412,7 +415,7 @@ private fun ListRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.5f))
+            .background(anxinField())
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -32,13 +32,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.anxin.browser.core.util.Urls
 import com.anxin.browser.data.HistoryEntry
+import com.anxin.browser.design.AnxinEmptyState
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.AuroraBackground
+import com.anxin.browser.design.anxinField
 import com.anxin.browser.design.GlassIconButton
 import com.anxin.browser.design.glassPanel
 import com.anxin.browser.ui.AnxinActionBar
@@ -90,21 +91,12 @@ fun HistoryScreen(
 
             if (entries.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Rounded.History,
-                            contentDescription = null,
-                            tint = palette.brand,
-                            modifier = Modifier.size(56.dp),
-                        )
-                        Spacer(Modifier.height(14.dp))
-                        Text("暂无历史记录", style = MaterialTheme.typography.titleMedium, color = palette.ink)
-                        Text(
-                            "浏览过的网页会按时间归档在这里",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = palette.inkTertiary,
-                        )
-                    }
+                    AnxinEmptyState(
+                        icon = Icons.Rounded.History,
+                        title = "暂无历史记录",
+                        hint = "浏览过的网页会按时间归档在这里，无痕访问不会留下记录。",
+                        modifier = Modifier.padding(horizontal = 18.dp),
+                    )
                 }
             } else {
                 LazyColumn(
@@ -134,7 +126,7 @@ fun HistoryScreen(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.72f)),
+                                        .background(anxinField()),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(
@@ -160,14 +152,20 @@ fun HistoryScreen(
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                 }
-                                Icon(
-                                    Icons.Rounded.Delete,
-                                    contentDescription = "删除该记录",
-                                    tint = palette.inkTertiary.copy(alpha = 0.6f),
+                                Box(
                                     modifier = Modifier
-                                        .size(17.dp)
+                                        .size(32.dp)
+                                        .clip(CircleShape)
                                         .clickable { onRemove(entry.url) },
-                                )
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Delete,
+                                        contentDescription = "删除该记录",
+                                        tint = palette.inkTertiary,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
                             }
                         }
                     }

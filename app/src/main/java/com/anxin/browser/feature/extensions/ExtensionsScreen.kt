@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Delete
@@ -45,10 +46,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.anxin.browser.data.extension.UserExtension
+import com.anxin.browser.design.AnxinDialogContainer
+import com.anxin.browser.design.AnxinEmptyState
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.AuroraBackground
+import com.anxin.browser.design.anxinDivider
 import com.anxin.browser.design.GlassIconButton
-import com.anxin.browser.design.GlassPrimaryButton
 import com.anxin.browser.design.glassPanel
 import com.anxin.browser.ui.AnxinActionBar
 import com.anxin.browser.ui.NavActions
@@ -86,7 +89,7 @@ fun ExtensionsScreen(
                 PageTitle(title = "扩展中心", count = extensions.size)
                 Spacer(Modifier.weight(1f))
                 GlassIconButton(
-                    Icons.Rounded.PushPin,
+                    Icons.Rounded.Add,
                     "导入扩展",
                     size = 36.dp,
                     onClick = onImport,
@@ -104,27 +107,14 @@ fun ExtensionsScreen(
 
             if (extensions.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Rounded.Extension,
-                            contentDescription = null,
-                            tint = palette.brand,
-                            modifier = Modifier.size(56.dp),
-                        )
-                        Spacer(Modifier.height(14.dp))
-                        Text("还没有安装扩展", style = MaterialTheme.typography.titleMedium, color = palette.ink)
-                        Text(
-                            "点击右上角按钮导入本地扩展包",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = palette.inkTertiary,
-                        )
-                        Spacer(Modifier.height(20.dp))
-                        GlassPrimaryButton(
-                            text = "导入扩展",
-                            modifier = Modifier.padding(horizontal = 48.dp),
-                            onClick = onImport,
-                        )
-                    }
+                    AnxinEmptyState(
+                        icon = Icons.Rounded.Extension,
+                        title = "还没有安装扩展",
+                        hint = "导入 .user.js 脚本或含 manifest.json 的 zip 包，扩展仅在本机生效。",
+                        actionLabel = "导入扩展",
+                        onAction = onImport,
+                        modifier = Modifier.padding(horizontal = 18.dp),
+                    )
                 }
             } else {
                 LazyColumn(
@@ -152,7 +142,7 @@ fun ExtensionsScreen(
     if (showDisclaimer) {
         AlertDialog(
             onDismissRequest = {},
-            containerColor = Color(0xFFFDFEFF),
+            containerColor = AnxinDialogContainer,
             shape = RoundedCornerShape(24.dp),
             title = { Text("使用前须知", style = MaterialTheme.typography.titleLarge) },
             text = {
@@ -160,7 +150,7 @@ fun ExtensionsScreen(
                     "扩展脚本将在你浏览的网页中运行，可能读取或修改页面内容。\n\n" +
                         "请仅安装可信来源的扩展包；企业场景建议只导入内部签名的脚本。",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF6B7B98),
+                    color = palette.inkSecondary,
                 )
             },
             confirmButton = {
@@ -169,7 +159,7 @@ fun ExtensionsScreen(
                     shape = RoundedCornerShape(50),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                         containerColor = AnxinPalette.brand,
-                        contentColor = Color.White,
+                        contentColor = palette.onAccent,
                     ),
                 ) { Text("我已知晓", fontWeight = FontWeight.SemiBold) }
             },
@@ -185,7 +175,7 @@ fun ExtensionsScreen(
                 TextButton(onClick = {
                     onDelete(ext.id)
                     pendingDelete = null
-                }) { Text("删除", color = Color(0xFFFF5A5F)) }
+                }) { Text("删除", color = palette.danger) }
             },
             dismissButton = {
                 TextButton(onClick = { pendingDelete = null }) { Text("取消") }
@@ -280,26 +270,35 @@ private fun ExtensionCard(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Icon(
-            Icons.Rounded.PushPin,
-            contentDescription = if (ext.pinned) "取消固定" else "固定",
-            tint = if (ext.pinned) palette.brand else palette.inkTertiary.copy(alpha = 0.5f),
+        Box(
             modifier = Modifier
-                .size(20.dp)
-                .clickable { onPin(!ext.pinned) }
-                .padding(2.dp),
-        )
-        Spacer(Modifier.width(6.dp))
-        Icon(
-            Icons.Rounded.Delete,
-            contentDescription = "删除扩展",
-            tint = palette.inkTertiary.copy(alpha = 0.6f),
+                .size(32.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { onPin(!ext.pinned) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.PushPin,
+                contentDescription = if (ext.pinned) "取消固定" else "固定",
+                tint = if (ext.pinned) palette.brand else palette.inkTertiary,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Box(
             modifier = Modifier
-                .size(20.dp)
-                .clickable(onClick = onDelete)
-                .padding(2.dp),
-        )
-        Spacer(Modifier.width(6.dp))
+                .size(32.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(onClick = onDelete),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.Delete,
+                contentDescription = "删除扩展",
+                tint = palette.inkTertiary,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Spacer(Modifier.width(2.dp))
         Switch(
             checked = ext.enabled,
             onCheckedChange = onToggle,
@@ -307,7 +306,7 @@ private fun ExtensionCard(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = palette.brand,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color(0x33000000),
+                uncheckedTrackColor = anxinDivider(),
             ),
         )
     }

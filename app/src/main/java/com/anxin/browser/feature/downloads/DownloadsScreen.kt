@@ -25,9 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.InsertDriveFile
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
@@ -50,12 +50,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.anxin.browser.core.model.DownloadItem
 import com.anxin.browser.core.model.DownloadStatus
+import com.anxin.browser.design.AnxinEmptyState
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.AuroraBackground
 import com.anxin.browser.design.GlassIconButton
 import com.anxin.browser.design.GlassPanel
-import com.anxin.browser.design.GlassSegment
+import com.anxin.browser.design.GlassSegments
 import com.anxin.browser.design.SectionHeader
+import com.anxin.browser.design.anxinField
 import com.anxin.browser.design.ThinProgressBar
 import com.anxin.browser.design.glassPanel
 import com.anxin.browser.ui.AnxinActionBar
@@ -168,15 +170,29 @@ fun DownloadsScreen(
                 GlassIconButton(Icons.Rounded.FolderOpen, "下载目录", size = 36.dp, onClick = onOpenFolder)
             }
 
-            Row(
+            GlassSegments(
+                labels = listOf(
+                    "下载中 (${running.size})",
+                    "已完成 (${finished.size})",
+                    "本地文件 (${localFiles.size})",
+                    "资源库",
+                ),
+                selectedIndex = when (segment) {
+                    1 -> 1
+                    2 -> 3
+                    3 -> 2
+                    else -> 0
+                },
+                onSelect = { index ->
+                    segment = when (index) {
+                        1 -> 1
+                        2 -> 3
+                        3 -> 2
+                        else -> 0
+                    }
+                },
                 modifier = Modifier.padding(horizontal = 18.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                GlassSegment("下载中 (${running.size})", segment == 0) { segment = 0 }
-                GlassSegment("已完成 (${finished.size})", segment == 1) { segment = 1 }
-                GlassSegment("本地文件 (${localFiles.size})", segment == 3) { segment = 3 }
-                GlassSegment("资源库", segment == 2) { segment = 2 }
-            }
+            )
 
             Spacer(Modifier.height(14.dp))
 
@@ -201,10 +217,7 @@ fun DownloadsScreen(
                 if (segment == 1 || segment == 0) {
                     item {
                         Spacer(Modifier.height(4.dp))
-                        SectionHeader(
-                            title = "下载完成",
-                            action = "更多",
-                        )
+                        SectionHeader(title = "下载完成")
                     }
                     if (finished.isEmpty()) {
                         if (segment == 1) {
@@ -281,25 +294,27 @@ fun DownloadsScreen(
                     }
                 }
 
-                item {
-                    Spacer(Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .glassPanel(radius = 25.dp, alpha = 0.45f, shadowElevation = 10.dp)
-                            .clickable { onClearFinished() },
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Rounded.DeleteSweep,
-                            contentDescription = null,
-                            tint = palette.inkSecondary,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("清空下载记录", style = MaterialTheme.typography.titleSmall, color = palette.ink)
+                if (finished.isNotEmpty()) {
+                    item {
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .glassPanel(radius = 25.dp, alpha = 0.45f, shadowElevation = 10.dp)
+                                .clickable { onClearFinished() },
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Rounded.DeleteSweep,
+                                contentDescription = null,
+                                tint = palette.inkSecondary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("清空下载记录", style = MaterialTheme.typography.titleSmall, color = palette.ink)
+                        }
                     }
                 }
             }
@@ -386,7 +401,7 @@ private fun DownloadCard(item: DownloadItem, onPause: () -> Unit) {
                     modifier = Modifier
                         .size(32.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.5f))
+                        .background(anxinField())
                         .clickable(onClick = onPause),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -406,14 +421,11 @@ private fun DownloadCard(item: DownloadItem, onPause: () -> Unit) {
 
 @Composable
 private fun EmptyTaskCard(title: String, hint: String) {
-    val palette = AnxinPalette
-    GlassPanel(radius = 22.dp, alpha = 0.55f) {
-        Column {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = palette.ink)
-            Spacer(Modifier.height(6.dp))
-            Text(hint, style = MaterialTheme.typography.bodyMedium, color = palette.inkSecondary)
-        }
-    }
+    AnxinEmptyState(
+        icon = Icons.Rounded.Download,
+        title = title,
+        hint = hint,
+    )
 }
 
 @Composable
@@ -432,12 +444,6 @@ private fun FileRow(name: String, size: String, ext: String, color: Color) {
             Text(name, style = MaterialTheme.typography.titleSmall, color = palette.ink, maxLines = 1)
             Text(size, style = MaterialTheme.typography.labelSmall, color = palette.inkTertiary)
         }
-        Icon(
-            Icons.Rounded.MoreHoriz,
-            contentDescription = null,
-            tint = palette.inkTertiary,
-            modifier = Modifier.size(18.dp),
-        )
     }
 }
 

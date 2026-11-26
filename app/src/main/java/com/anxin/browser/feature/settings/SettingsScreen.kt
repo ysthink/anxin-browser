@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.Extension
@@ -55,8 +56,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.anxin.browser.design.AnxinDialogContainer
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.AuroraBackground
+import com.anxin.browser.design.anxinDivider
 import com.anxin.browser.design.GlassIconButton
 import com.anxin.browser.design.IconBubble
 import com.anxin.browser.design.glassPanel
@@ -74,7 +77,9 @@ fun SettingsScreen(
     searchEngine: String,
     textZoom: Int,
     showEngineBar: Boolean,
+    nightMode: Boolean,
     onEngineBarChange: (Boolean) -> Unit,
+    onNightModeChange: (Boolean) -> Unit,
     onExitConfirmChange: (Boolean) -> Unit,
     onAdBlockChange: (Boolean) -> Unit,
     onDoNotTrackChange: (Boolean) -> Unit,
@@ -165,6 +170,14 @@ fun SettingsScreen(
 
             // ---- 常规 ----
             GroupCard("常规") {
+                SwitchEntry(
+                    Icons.Rounded.DarkMode,
+                    palette.violet,
+                    "夜间模式",
+                    checked = nightMode,
+                    onChecked = onNightModeChange,
+                )
+                CardDivider()
                 RowEntry(Icons.Rounded.Home, Color(0xFF3D6BFF), "主页设置") { onOpenHomeSettings() }
                 CardDivider()
                 RowEntry(Icons.Rounded.Search, Color(0xFF2CA8FF), "搜索设置", trailing = searchEngine) { onOpenSearchSettings() }
@@ -214,8 +227,6 @@ fun SettingsScreen(
                 CardDivider()
                 RowEntry(Icons.Rounded.PlayCircle, Color(0xFF23C08A), "播放设置") { onOpenPlaySettings() }
                 CardDivider()
-                RowEntry(Icons.Rounded.Person, Color(0xFF5B6BB5), "密码管理", trailing = "本机占位") { }
-                CardDivider()
                 RowEntry(Icons.Rounded.Lock, Color(0xFF7B5CFF), "无痕模式") { onOpenIncognito() }
                 CardDivider()
                 RowEntry(Icons.Rounded.Extension, Color(0xFF8B6CFF), "扩展管理") { onOpenExtensions() }
@@ -242,7 +253,7 @@ fun SettingsScreen(
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
             ) {
                 Text("安心浏览器 v0.2.0", style = MaterialTheme.typography.labelSmall, color = palette.inkTertiary)
-                Text("WebView 内核 · 待接入 Chromium", style = MaterialTheme.typography.labelSmall, color = palette.inkTertiary)
+                Text("默认 WebView · 可选 Chromium 内核", style = MaterialTheme.typography.labelSmall, color = palette.inkTertiary)
             }
 
             Spacer(Modifier.height(120.dp))
@@ -256,6 +267,7 @@ fun SettingsScreen(
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
+            containerColor = AnxinDialogContainer,
             title = { Text("恢复默认设置") },
             text = { Text("将清除全部应用配置（引擎、主页、菜单布局、显示设置等），书签与历史保留。确定继续？") },
             confirmButton = {
@@ -299,11 +311,9 @@ private fun CardDivider() {
             .padding(start = 60.dp, end = 14.dp)
             .fillMaxWidth()
             .height(0.7.dp)
-            .background(paletteInk(0.06f)),
+            .background(anxinDivider()),
     )
 }
-
-private fun paletteInk(alpha: Float): Color = Color(0xFF0D1730).copy(alpha = alpha)
 
 @Composable
 private fun RowEntry(
@@ -377,7 +387,7 @@ private fun SwitchEntry(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = palette.brand,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color(0x33000000),
+                uncheckedTrackColor = anxinDivider(),
             ),
         )
     }

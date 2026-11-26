@@ -5,12 +5,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -48,10 +50,19 @@ fun Modifier.glassPanel(
     alpha: Float = 0.52f,
     borderAlpha: Float = 0.72f,
     shadowElevation: Dp = 16.dp,
-    tint: Color = Color.White,
+    tint: Color? = null,
     shadowTint: Color = Color(0xFF3D6BFF),
 ): Modifier {
     val shape: Shape = RoundedCornerShape(radius)
+    // 玻璃底色跟随主题：亮色为白，深色为深蓝紫。否则深色模式下
+    // 白色半透明面板会把 palette.ink（已变白）的文字吃掉。
+    val palette = AnxinPalette
+    val panelTint = tint ?: palette.glassTint
+    val lineColor = if (isAnxinDark && tint == null) {
+        palette.hairline.copy(alpha = borderAlpha)
+    } else {
+        Color.White.copy(alpha = borderAlpha)
+    }
     return this
         .shadow(
             elevation = shadowElevation,
@@ -64,8 +75,8 @@ fun Modifier.glassPanel(
         .background(
             Brush.linearGradient(
                 colors = listOf(
-                    tint.copy(alpha = (alpha + 0.16f).coerceAtMost(1f)),
-                    tint.copy(alpha = alpha * 0.66f),
+                    panelTint.copy(alpha = (alpha + 0.16f).coerceAtMost(1f)),
+                    panelTint.copy(alpha = alpha * 0.66f),
                 ),
                 start = Offset.Zero,
                 end = Offset.Infinite,
@@ -73,9 +84,9 @@ fun Modifier.glassPanel(
         )
         .background(
             Brush.verticalGradient(
-                0f to Color.White.copy(alpha = 0.34f),
-                0.45f to Color.White.copy(alpha = 0.02f),
-                1f to Color.White.copy(alpha = 0.10f),
+                0f to palette.glassHighlight,
+                0.45f to Color.Transparent,
+                1f to palette.hairline.copy(alpha = 0.28f),
             )
         )
         .border(
@@ -83,9 +94,9 @@ fun Modifier.glassPanel(
                 width = 1.2.dp,
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = borderAlpha),
-                        Color.White.copy(alpha = borderAlpha * 0.22f),
-                        Color.White.copy(alpha = borderAlpha * 0.75f),
+                        lineColor,
+                        lineColor.copy(alpha = 0.22f),
+                        lineColor.copy(alpha = 0.75f),
                     ),
                 ),
             ),
@@ -126,11 +137,7 @@ fun GlassIconButton(
         modifier = modifier
             .size(size)
             .glassPanel(radius = size / 2, alpha = 0.5f, borderAlpha = 0.8f, shadowElevation = 8.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -169,7 +176,7 @@ fun GlassPrimaryButton(
                     colors = if (enabled) {
                         listOf(palette.brandSoft, palette.brand, palette.violet)
                     } else {
-                        listOf(Color(0xFFB9C5DA), Color(0xFFA7B3C7))
+                        listOf(palette.surfaceMuted, palette.surface)
                     },
                 )
             )
@@ -182,11 +189,12 @@ fun GlassPrimaryButton(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val contentColor = if (enabled) palette.onAccent else palette.inkTertiary
         if (icon != null) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
         }
-        Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge)
+        Text(text, color = contentColor, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -205,14 +213,19 @@ fun GlassSegment(
             .clip(RoundedCornerShape(50))
             .background(
                 if (selected) {
-                    Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.95f), Color.White.copy(alpha = 0.78f)))
+                    // 深色下白底会把亮色系品牌文字吃掉，改用品牌色填充 + 白字。
+                    if (isAnxinDark) {
+                        Brush.horizontalGradient(listOf(palette.brand, palette.violet))
+                    } else {
+                        Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.95f), Color.White.copy(alpha = 0.78f)))
+                    }
                 } else {
-                    Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.10f)))
+                    Brush.horizontalGradient(listOf(anxinField(), anxinSurfaceMuted()))
                 }
             )
             .border(
                 1.dp,
-                if (selected) Color.White.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.42f),
+                if (selected) palette.hairline else anxinDivider(),
                 RoundedCornerShape(50),
             )
             .clickable(onClick = onClick)
@@ -222,7 +235,11 @@ fun GlassSegment(
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
-            color = if (selected) palette.brandDeep else palette.inkSecondary,
+            color = when {
+                selected && isAnxinDark -> palette.onAccent
+                selected -> palette.brandDeep
+                else -> palette.inkSecondary
+            },
         )
     }
 }
@@ -232,7 +249,7 @@ fun GlassSegment(
 fun GlassTag(
     text: String,
     modifier: Modifier = Modifier,
-    container: Color = Color.White.copy(alpha = 0.5f),
+    container: Color = anxinField(),
     textColor: Color = AnxinPalette.inkSecondary,
 ) {
     Box(
@@ -285,7 +302,7 @@ fun ThinProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
     height: Dp = 4.dp,
-    track: Color = Color(0x1A0D1730),
+    track: Color = anxinDivider(),
     brush: Brush? = null,
 ) {
     val palette = AnxinPalette
@@ -361,3 +378,59 @@ fun MinTouchTarget(content: @Composable () -> Unit) {
 
 @Composable
 fun ScreenColumnPadding(): PaddingValues = PaddingValues(horizontal = 18.dp)
+
+/** 可横向滚动的分段选择器组，避免 4 个以上选项在窄屏被挤压或截断。 */
+@Composable
+fun GlassSegments(
+    labels: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        labels.forEachIndexed { index, label ->
+            GlassSegment(label, selectedIndex == index) { onSelect(index) }
+        }
+    }
+}
+
+/** 统一的空状态：图标 + 主标题 + 说明 + 可选主操作。 */
+@Composable
+fun AnxinEmptyState(
+    icon: ImageVector,
+    title: String,
+    hint: String,
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: () -> Unit = {},
+) {
+    Column(
+        modifier = modifier.fillMaxWidth().glassPanel(radius = AnxinShapes.lg, alpha = 0.5f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        IconBubble(icon, AnxinPalette.brand, size = 56.dp)
+        Spacer(Modifier.height(14.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, color = AnxinPalette.ink)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isAnxinDark) AnxinPalette.ink.copy(alpha = 0.86f) else AnxinPalette.inkSecondary,
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+        if (actionLabel != null) {
+            Spacer(Modifier.height(16.dp))
+            GlassPrimaryButton(text = actionLabel, onClick = onAction)
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+/** 弹窗统一容器色，避免夜间模式出现刺眼白卡。 */
+val AnxinDialogContainer: Color
+    @Composable get() = if (isAnxinDark) Color(0xFF241E44) else Color(0xFFFDFEFF)

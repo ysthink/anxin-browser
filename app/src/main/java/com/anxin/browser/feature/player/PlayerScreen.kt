@@ -228,7 +228,10 @@ fun PlayerScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
                             .background(Color.White.copy(alpha = 0.18f))
-                            .clickable { speed = if (speed >= 2f) 0.5f else speed + 0.5f }
+                            .clickable {
+                                speed = if (speed >= 2f) 0.5f else speed + 0.5f
+                                player.playbackParameters = PlaybackParameters(speed)
+                            }
                             .padding(horizontal = 10.dp, vertical = 3.dp),
                     ) {
                         Text("${speed}x", style = MaterialTheme.typography.labelSmall, color = Color.White)
@@ -237,7 +240,7 @@ fun PlayerScreen(
 
                 Spacer(Modifier.height(8.dp))
                 ThinProgressBar(
-                    progress = (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f),
+                    progress = if (duration > 0) (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f,
                     height = 3.dp,
                     track = Color.White.copy(alpha = 0.24f),
                     brush = Brush.horizontalGradient(listOf(Color(0xFF8FB4FF), Color(0xFFB49CFF))),

@@ -51,7 +51,8 @@ import com.anxin.browser.core.util.Urls
 import com.anxin.browser.data.HistoryEntry
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.GlassPrimaryButton
-import com.anxin.browser.design.GlassSegment
+import com.anxin.browser.design.GlassSegments
+import com.anxin.browser.design.anxinField
 import com.anxin.browser.design.glassPanel
 
 /**
@@ -91,11 +92,11 @@ fun AddShortcutDialog(
             Text("从书签或历史选择，或直接新建", style = MaterialTheme.typography.labelSmall, color = palette.inkTertiary)
 
             Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GlassSegment("书签 (${bookmarks.size})", tab == 0) { tab = 0 }
-                GlassSegment("历史", tab == 1) { tab = 1 }
-                GlassSegment("新建书签", tab == 2) { tab = 2 }
-            }
+            GlassSegments(
+                labels = listOf("书签 (${bookmarks.size})", "历史", "新建书签"),
+                selectedIndex = tab,
+                onSelect = { tab = it },
+            )
 
             Spacer(Modifier.height(14.dp))
 
@@ -189,7 +190,7 @@ private fun EntryRow(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.75f)),
+                .background(anxinField()),
             contentAlignment = Alignment.Center,
         ) {
             Icon(icon, contentDescription = null, tint = palette.brand, modifier = Modifier.size(17.dp))
@@ -250,7 +251,7 @@ private fun LabeledField(
                 .fillMaxWidth()
                 .height(44.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White.copy(alpha = 0.75f))
+                .background(anxinField())
                 .padding(horizontal = 12.dp),
             contentAlignment = Alignment.CenterStart,
         ) {

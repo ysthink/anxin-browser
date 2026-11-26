@@ -47,10 +47,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.anxin.browser.core.model.BrowserTab
 import com.anxin.browser.core.util.Urls
+import com.anxin.browser.design.AnxinEmptyState
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.AuroraBackground
 import com.anxin.browser.design.GlassIconButton
-import com.anxin.browser.design.GlassSegment
+import com.anxin.browser.design.GlassSegments
+import com.anxin.browser.design.anxinField
+import com.anxin.browser.design.anxinSurfaceMuted
 import com.anxin.browser.design.glassPanel
 import com.anxin.browser.ui.AnxinActionBar
 import com.anxin.browser.ui.NavActions
@@ -92,14 +95,16 @@ fun TabsScreen(
             }
 
             // 三分模式：最近 / 窗口 / 无痕（紫色高亮）
-            Row(
+            GlassSegments(
+                labels = listOf(
+                    "最近 (${recentTabs.size})",
+                    "窗口 (${normalTabs.size})",
+                    "无痕 (${incognitoTabs.size})",
+                ),
+                selectedIndex = segment,
+                onSelect = { segment = it },
                 modifier = Modifier.padding(horizontal = 18.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                GlassSegment("最近 (${recentTabs.size})", segment == 0) { segment = 0 }
-                GlassSegment("窗口 (${normalTabs.size})", segment == 1) { segment = 1 }
-                GlassSegment("无痕 (${incognitoTabs.size})", segment == 2) { segment = 2 }
-            }
+            )
 
             Spacer(Modifier.height(14.dp))
 
@@ -253,7 +258,7 @@ private fun TabCard(
                     .clip(CircleShape)
                     .background(
                         if (tab.isIncognito) Color(0xFF6B4BD6).copy(alpha = 0.18f)
-                        else Color.White.copy(alpha = 0.75f)
+                        else anxinField()
                     ),
                 contentAlignment = Alignment.Center,
             ) {
@@ -283,7 +288,7 @@ private fun TabCard(
             }
             Box(
                 modifier = Modifier
-                    .size(26.dp)
+                    .size(32.dp)
                     .clip(CircleShape)
                     .clickable(onClick = onClose),
                 contentAlignment = Alignment.Center,
@@ -305,7 +310,7 @@ private fun TabCard(
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            Color.White.copy(alpha = 0.92f),
+                            anxinSurfaceMuted(),
                             accent.copy(alpha = 0.10f),
                         )
                     )
@@ -352,54 +357,12 @@ private fun TabCard(
 
 @Composable
 private fun EmptyTabs(incognito: Boolean, onCreate: () -> Unit) {
-    val palette = AnxinPalette
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(96.dp)
-                .glassPanel(radius = 48.dp, alpha = 0.5f, shadowElevation = 18.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                if (incognito) Icons.Rounded.Lock else Icons.Rounded.Tab,
-                contentDescription = null,
-                tint = palette.brand,
-                modifier = Modifier.size(38.dp),
-            )
-        }
-        Spacer(Modifier.height(18.dp))
-        Text(
-            if (incognito) "还没有无痕标签" else "还没有打开的网页",
-            style = MaterialTheme.typography.titleMedium,
-            color = palette.ink,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            if (incognito) "无痕标签关闭后不会留下任何记录" else "点击下方按钮开始浏览，或从首页搜索",
-            style = MaterialTheme.typography.bodySmall,
-            color = palette.inkTertiary,
-        )
-        Spacer(Modifier.height(18.dp))
-        Row(
-            modifier = Modifier
-                .height(44.dp)
-                .glassPanel(radius = 22.dp, alpha = 0.6f, shadowElevation = 12.dp)
-                .clickable(onClick = onCreate)
-                .padding(horizontal = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.Add, contentDescription = null, tint = palette.brand, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(
-                if (incognito) "新建无痕标签" else "新建标签页",
-                style = MaterialTheme.typography.titleSmall,
-                color = palette.brandDeep,
-            )
-        }
-    }
+    AnxinEmptyState(
+        icon = if (incognito) Icons.Rounded.Lock else Icons.Rounded.Tab,
+        title = if (incognito) "还没有无痕标签" else "还没有打开的网页",
+        hint = if (incognito) "无痕标签关闭后不会留下任何记录" else "新建标签页，或从首页搜索开始浏览",
+        actionLabel = if (incognito) "新建无痕标签" else "新建标签页",
+        onAction = onCreate,
+        modifier = Modifier.padding(top = 24.dp),
+    )
 }

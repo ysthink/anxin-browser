@@ -28,12 +28,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Share
@@ -68,6 +70,8 @@ import com.anxin.browser.core.model.BrowserTab
 import com.anxin.browser.core.util.Urls
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.ThinProgressBar
+import com.anxin.browser.design.anxinSurface
+import com.anxin.browser.design.anxinSurfaceMuted
 import com.anxin.browser.design.glassPanel
 import com.anxin.browser.ui.AnxinActionBar
 import com.anxin.browser.ui.NavActions
@@ -99,7 +103,7 @@ fun BrowserScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFFEFF4FF), Color(0xFFF8FAFF)))),
+            .background(Brush.verticalGradient(listOf(anxinSurface(), anxinSurfaceMuted()))),
     ) {
         if (!hideTopBars) {
             Column(Modifier.fillMaxWidth().statusBarsPadding()) {
@@ -187,10 +191,10 @@ private fun AddressChip(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            Icons.Rounded.Lock,
-            contentDescription = null,
-            tint = palette.inkTertiary,
-            modifier = Modifier.size(14.dp),
+            imageVector = if (url.startsWith("https://")) Icons.Rounded.Lock else Icons.Rounded.Public,
+            contentDescription = if (url.startsWith("https://")) "安全连接" else "普通连接",
+            tint = if (url.startsWith("https://")) palette.positive else palette.inkTertiary,
+            modifier = Modifier.size(15.dp),
         )
         Spacer(Modifier.width(8.dp))
         if (editing) {
@@ -205,11 +209,11 @@ private fun AddressChip(
                 modifier = Modifier.weight(1f),
             )
             Icon(
-                Icons.Rounded.ArrowBack,
-                contentDescription = "收起",
-                tint = palette.inkTertiary,
+                Icons.Rounded.Check,
+                contentDescription = "前往该地址",
+                tint = palette.brand,
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(18.dp)
                     .clickable { onSubmit() },
             )
         } else {

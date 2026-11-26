@@ -2,7 +2,6 @@ package com.anxin.browser.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -22,7 +21,6 @@ import androidx.compose.material.icons.rounded.Tab
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,7 +28,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.glassPanel
+import com.anxin.browser.design.isAnxinDark
 
 /**
  * 全应用统一的悬浮浏览操作栏。
@@ -53,11 +53,13 @@ fun AnxinActionBar(
     modifier: Modifier = Modifier,
     tabCount: Int = 0,
     canGoForward: Boolean = true,
-    dark: Boolean = false,
+    /** null = 跟随全局主题；true/false = 沉浸页强制指定。 */
+    dark: Boolean? = null,
 ) {
-    val noRipple = remember { MutableInteractionSource() }
-    val iconTint = if (dark) Color(0xFFE8ECFF) else Color(0xFF324477)
-    val badgeBg = if (dark) Color(0xFF9D7BFF) else Color(0xFF3D6BFF)
+    val useDark = dark ?: isAnxinDark
+    val palette = AnxinPalette
+    val iconTint = if (useDark) Color(0xFFE8ECFF) else Color(0xFF324477)
+    val badgeBg = if (useDark) Color(0xFF5E3BC7) else palette.brand
 
     Box(
         modifier = modifier
@@ -67,30 +69,29 @@ fun AnxinActionBar(
             .height(64.dp)
             .glassPanel(
                 radius = 30.dp,
-                alpha = if (dark) 0.42f else 0.72f,
-                borderAlpha = if (dark) 0.38f else 0.92f,
+                alpha = if (useDark) 0.42f else 0.72f,
+                borderAlpha = if (useDark) 0.38f else 0.92f,
                 shadowElevation = 20.dp,
-                tint = if (dark) Color(0xFF2A2350) else Color.White,
-                shadowTint = if (dark) Color(0xFF6B4BD6) else Color(0xFF3D6BFF),
+                tint = if (useDark) Color(0xFF2A2350) else Color.White,
+                shadowTint = if (useDark) Color(0xFF6B4BD6) else Color(0xFF3D6BFF),
             ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ActionSlot(Icons.Rounded.ArrowBack, "后退", iconTint, noRipple, actions.back)
+            ActionSlot(Icons.Rounded.ArrowBack, "后退", iconTint, actions.back)
             ActionSlot(
                 Icons.Rounded.ArrowForward,
                 "前进",
                 if (canGoForward) iconTint else iconTint.copy(alpha = 0.32f),
-                noRipple,
                 actions.forward,
             )
 
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable(interactionSource = noRipple, indication = null, onClick = actions.tabs),
+                    .clickable(onClick = actions.tabs),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -118,8 +119,8 @@ fun AnxinActionBar(
                 }
             }
 
-            ActionSlot(Icons.Rounded.Menu, "菜单", iconTint, noRipple, actions.menu)
-            ActionSlot(actions.primaryIcon, actions.primaryLabel, iconTint, noRipple, actions.newTab)
+            ActionSlot(Icons.Rounded.Menu, "菜单", iconTint, actions.menu)
+            ActionSlot(actions.primaryIcon, actions.primaryLabel, iconTint, actions.newTab)
         }
     }
 }
@@ -129,14 +130,13 @@ private fun RowScope.ActionSlot(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     tint: Color,
-    source: MutableInteractionSource,
     onClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .weight(1f)
             .height(56.dp)
-            .clickable(interactionSource = source, indication = null, onClick = onClick),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(23.dp))

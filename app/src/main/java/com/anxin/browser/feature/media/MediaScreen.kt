@@ -47,10 +47,11 @@ import androidx.compose.ui.unit.dp
 import com.anxin.browser.core.model.MediaResource
 import com.anxin.browser.core.model.MediaType
 import com.anxin.browser.core.util.Urls
+import com.anxin.browser.design.AnxinEmptyState
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.AuroraBackground
 import com.anxin.browser.design.GlassIconButton
-import com.anxin.browser.design.GlassSegment
+import com.anxin.browser.design.GlassSegments
 import com.anxin.browser.design.IconBubble
 import com.anxin.browser.design.glassPanel
 import com.anxin.browser.ui.AnxinActionBar
@@ -99,35 +100,28 @@ fun MediaScreen(
                 GlassIconButton(Icons.Rounded.DeleteSweep, "清空", size = 36.dp, onClick = onClear)
             }
 
-            Row(
+            GlassSegments(
+                labels = listOf(
+                    "全部 (${resources.size})",
+                    "视频",
+                    "音频",
+                    "图片",
+                ),
+                selectedIndex = segment,
+                onSelect = { segment = it },
                 modifier = Modifier.padding(horizontal = 18.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                GlassSegment("全部 (${resources.size})", segment == 0) { segment = 0 }
-                GlassSegment("视频", segment == 1) { segment = 1 }
-                GlassSegment("音频", segment == 2) { segment = 2 }
-                GlassSegment("图片", segment == 3) { segment = 3 }
-            }
+            )
 
             Spacer(Modifier.height(12.dp))
 
             if (shown.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Rounded.VideoLibrary,
-                            contentDescription = null,
-                            tint = palette.brand,
-                            modifier = Modifier.size(56.dp),
-                        )
-                        Spacer(Modifier.size(14.dp))
-                        Text("暂未嗅探到媒体资源", style = MaterialTheme.typography.titleMedium, color = palette.ink)
-                        Text(
-                            "打开带视频的网页后回到这里查看",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = palette.inkTertiary,
-                        )
-                    }
+                    AnxinEmptyState(
+                        icon = Icons.Rounded.VideoLibrary,
+                        title = "暂未嗅探到媒体资源",
+                        hint = "打开带视频的网页后回到这里查看，资源仅在当前会话中保留。",
+                        modifier = Modifier.padding(horizontal = 18.dp),
+                    )
                 }
             } else {
                 LazyColumn(
@@ -195,24 +189,36 @@ private fun MediaRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Icon(
-            Icons.Rounded.ContentCopy,
-            contentDescription = "复制链接",
-            tint = palette.inkSecondary,
+        Box(
             modifier = Modifier
-                .size(18.dp)
+                .size(32.dp)
+                .clip(RoundedCornerShape(10.dp))
                 .clickable(onClick = onCopy),
-        )
-        Spacer(Modifier.width(10.dp))
-        if (res.type != MediaType.IMAGE && res.type != MediaType.FILE) {
+            contentAlignment = Alignment.Center,
+        ) {
             Icon(
-                Icons.Rounded.PlayCircle,
-                contentDescription = "播放",
-                tint = palette.brand,
-                modifier = Modifier
-                    .size(24.dp)
-                    .clickable(onClick = onPlay),
+                Icons.Rounded.ContentCopy,
+                contentDescription = "复制链接",
+                tint = palette.inkSecondary,
+                modifier = Modifier.size(17.dp),
             )
+        }
+        if (res.type != MediaType.IMAGE && res.type != MediaType.FILE) {
+            Spacer(Modifier.width(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onPlay),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Rounded.PlayCircle,
+                    contentDescription = "播放",
+                    tint = palette.brand,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
         }
     }
 }

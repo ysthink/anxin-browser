@@ -65,6 +65,10 @@ import com.anxin.browser.PendingLink
 import com.anxin.browser.core.model.MediaResource
 import com.anxin.browser.core.util.Urls
 import com.anxin.browser.data.MenuEntry
+import com.anxin.browser.design.AnxinDialogContainer
+import com.anxin.browser.design.AnxinPalette
+import com.anxin.browser.design.anxinField
+import com.anxin.browser.design.anxinSurfaceMuted
 import com.anxin.browser.feature.browser.BrowserScreen
 import com.anxin.browser.feature.bookmarks.BookmarksScreen
 import com.anxin.browser.feature.downloads.DownloadsScreen
@@ -513,7 +517,9 @@ fun AnxinNavHost() {
                 searchEngine = searchEngine,
                 textZoom = textZoom,
                 showEngineBar = showEngineBar,
+                nightMode = nightMode,
                 onEngineBarChange = { value -> scope.launch { graph.settings.setEngineBar(value) } },
+                onNightModeChange = { value -> scope.launch { graph.settings.setNightMode(value) } },
                 onExitConfirmChange = { value -> scope.launch { graph.settings.setExitConfirm(value) } },
                 onAdBlockChange = { value -> scope.launch { graph.settings.setAdBlock(value) } },
                 onDoNotTrackChange = { value -> scope.launch { graph.settings.setDoNotTrack(value) } },
@@ -829,14 +835,14 @@ fun AnxinNavHost() {
     if (showExitConfirm) {
         AlertDialog(
             onDismissRequest = { showExitConfirm = false },
-            containerColor = Color(0xFFFDFEFF),
+            containerColor = AnxinDialogContainer,
             shape = RoundedCornerShape(24.dp),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Rounded.ExitToApp,
                         contentDescription = null,
-                        tint = Color(0xFFFF5A5F),
+                        tint = AnxinPalette.danger,
                         modifier = Modifier.size(22.dp),
                     )
                     Spacer(Modifier.width(10.dp))
@@ -847,7 +853,7 @@ fun AnxinNavHost() {
                 Text(
                     "退出后将关闭全部标签页，下次打开为全新会话。",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF6B7B98),
+                    color = AnxinPalette.inkSecondary,
                 )
             },
             confirmButton = {
@@ -858,8 +864,8 @@ fun AnxinNavHost() {
                     },
                     shape = RoundedCornerShape(50),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF5A5F),
-                        contentColor = Color.White,
+                        containerColor = AnxinPalette.danger,
+                        contentColor = AnxinPalette.onAccent,
                     ),
                     modifier = Modifier.heightIn(min = 42.dp),
                 ) {
@@ -871,7 +877,7 @@ fun AnxinNavHost() {
                     onClick = { showExitConfirm = false },
                     modifier = Modifier.heightIn(min = 42.dp),
                 ) {
-                    Text("继续浏览", color = Color(0xFF3D6BFF), fontWeight = FontWeight.SemiBold)
+                    Text("继续浏览", color = AnxinPalette.brand, fontWeight = FontWeight.SemiBold)
                 }
             },
         )
@@ -890,17 +896,15 @@ private fun EnginePickerDialog(
     onDismiss: () -> Unit,
     onPick: (String) -> Unit,
 ) {
-    val ink = Color(0xFF0D1730)
-    val inkTertiary = Color(0xFF9AA8BE)
-    val brand = Color(0xFF3D6BFF)
+    val palette = AnxinPalette
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFFFDFEFF),
+        containerColor = AnxinDialogContainer,
         shape = RoundedCornerShape(24.dp),
         title = {
             Column {
                 Text("搜索引擎", style = MaterialTheme.typography.titleLarge)
-                Text("选择默认搜索入口", style = MaterialTheme.typography.labelSmall, color = inkTertiary)
+                Text("选择默认搜索入口", style = MaterialTheme.typography.labelSmall, color = palette.inkTertiary)
             }
         },
         text = {
@@ -911,7 +915,7 @@ private fun EnginePickerDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (selected) Color(0xFFEAF0FF) else Color(0xFFF3F6FC))
+                            .background(if (selected) anxinField() else anxinSurfaceMuted())
                             .clickable { onPick(name) }
                             .padding(horizontal = 14.dp, vertical = 13.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -919,7 +923,7 @@ private fun EnginePickerDialog(
                         Text(
                             name,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = ink,
+                            color = palette.ink,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                             modifier = Modifier.weight(1f),
                         )
@@ -927,7 +931,7 @@ private fun EnginePickerDialog(
                             Icon(
                                 Icons.Rounded.Check,
                                 contentDescription = "当前引擎",
-                                tint = brand,
+                                tint = palette.brand,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -936,7 +940,7 @@ private fun EnginePickerDialog(
                 Text(
                     "自定义引擎将在内核阶段接入",
                     style = MaterialTheme.typography.labelSmall,
-                    color = inkTertiary,
+                    color = palette.inkTertiary,
                     modifier = Modifier.padding(start = 4.dp),
                 )
             }

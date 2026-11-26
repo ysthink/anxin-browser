@@ -47,6 +47,8 @@ import com.anxin.browser.R
 import com.anxin.browser.core.util.Urls
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.AuroraBackground
+import com.anxin.browser.design.anxinDivider
+import com.anxin.browser.design.anxinField
 import com.anxin.browser.design.GlassIconButton
 import com.anxin.browser.design.GlassPrimaryButton
 import com.anxin.browser.design.glassPanel
@@ -123,7 +125,7 @@ internal fun SettingsSwitchRow(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = palette.brand,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = Color(0x33000000),
+                uncheckedTrackColor = anxinDivider(),
             ),
         )
     }
@@ -158,7 +160,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.divider(modifier: Mod
             .padding(start = 14.dp, end = 14.dp)
             .fillMaxWidth()
             .height(0.7.dp)
-            .background(AnxinPalette.ink.copy(alpha = 0.06f)),
+            .background(anxinDivider()),
     )
 }
 
@@ -293,7 +295,7 @@ private fun ModeRow(title: String, subtitle: String, selected: Boolean, onClick:
             modifier = Modifier
                 .size(22.dp)
                 .clip(CircleShape)
-                .background(if (selected) palette.brand else Color.White.copy(alpha = 0.6f)),
+                .background(if (selected) palette.brand else anxinField()),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
@@ -391,13 +393,6 @@ fun WebSettingsScreen(
                     color = palette.inkTertiary,
                 )
             }
-            divider()
-            SettingsSwitchRow(
-                title = "网页缩放",
-                subtitle = "允许双指缩放页面（默认开启）",
-                checked = true,
-                onChange = { },
-            )
         }
 
         SettingsGroup(title = "访问方式") {

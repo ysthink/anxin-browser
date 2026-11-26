@@ -3,7 +3,6 @@ package com.anxin.browser.feature.incognito
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -71,13 +70,19 @@ fun IncognitoScreen(
                     onClick = onBack,
                 )
                 Spacer(Modifier.weight(1f))
-                GlassIconButton(
-                    Icons.Rounded.Lock,
-                    "隐私锁定",
-                    size = 36.dp,
-                    iconTint = Color.White,
-                    onClick = {},
-                )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .glassPanel(radius = 18.dp, alpha = 0.24f, borderAlpha = 0.4f, shadowElevation = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Rounded.Lock,
+                        contentDescription = "隐私模式",
+                        tint = Color.White,
+                        modifier = Modifier.size(17.dp),
+                    )
+                }
             }
 
             Spacer(Modifier.weight(0.9f))
@@ -140,6 +145,15 @@ fun IncognitoScreen(
                         .padding(horizontal = 22.dp),
                     onClick = onStart,
                 )
+                Spacer(Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    PrivacyHint(Icons.Rounded.History, "不记录历史")
+                    PrivacyHint(Icons.Rounded.Storage, "不保留 Cookie")
+                    PrivacyHint(Icons.Rounded.Lock, "关闭即清理")
+                }
             }
 
             Spacer(Modifier.weight(1f))

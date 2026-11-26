@@ -73,7 +73,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.anxin.browser.design.AnxinPalette
-import com.anxin.browser.design.glassPanel
+import com.anxin.browser.design.anxinDivider
+import com.anxin.browser.design.anxinField
+import com.anxin.browser.design.anxinSurface
+import com.anxin.browser.design.isAnxinDark
 import com.anxin.browser.data.MenuEntry
 
 /** 菜单面板动作全集：id -> (文案, 图标)。 */
@@ -154,11 +157,17 @@ fun MenuSheet(
                     spotColor = Color(0xFF1B2A55).copy(alpha = 0.32f),
                 )
                 .clip(RoundedCornerShape(30.dp))
-                .background(Color(0xFFFDFEFF).copy(alpha = 0.99f))
+                .background(
+                    anxinSurface()
+                )
                 .border(
                     width = 1.dp,
                     brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.95f), Color(0xFFE3EAF9)),
+                        if (isAnxinDark) {
+                            listOf(palette.hairline, Color(0xFF3E3568))
+                        } else {
+                            listOf(Color.White.copy(alpha = 0.95f), Color(0xFFE3EAF9))
+                        },
                     ),
                     shape = RoundedCornerShape(30.dp),
                 )
@@ -188,7 +197,7 @@ fun MenuSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(Color(0xFFF1F5FF))
+                        .background(anxinField())
                         .clickable(onClick = onShare)
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
@@ -201,7 +210,7 @@ fun MenuSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(Color(0xFFF1F5FF))
+                        .background(anxinField())
                         .clickable(onClick = onSettings)
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
@@ -237,7 +246,7 @@ fun MenuSheet(
             } else {
                 // ---- 编辑态：全项排序 + 显隐 ----
                 Text(
-                    "长按拖动排序 · 开关控制显隐",
+                    "上下箭头排序 · 开关控制显隐",
                     style = MaterialTheme.typography.labelSmall,
                     color = palette.inkTertiary,
                 )
@@ -253,7 +262,7 @@ fun MenuSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(if (entry.visible) Color(0xFFF3F6FC) else Color(0xFFEDF0F7))
+                                .background(if (entry.visible) anxinField() else anxinSurface())
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -270,23 +279,35 @@ fun MenuSheet(
                                 color = if (entry.visible) palette.ink else palette.inkTertiary,
                                 modifier = Modifier.weight(1f),
                             )
-                            Column {
-                                Icon(
-                                    Icons.Rounded.KeyboardArrowUp,
-                                    contentDescription = "上移",
-                                    tint = if (index > 0) palette.inkSecondary else palette.inkTertiary.copy(alpha = 0.4f),
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
                                     modifier = Modifier
-                                        .size(22.dp)
+                                        .size(28.dp)
+                                        .clip(RoundedCornerShape(8.dp))
                                         .clickable(enabled = index > 0) { onMove(index, true) },
-                                )
-                                Icon(
-                                    Icons.Rounded.KeyboardArrowDown,
-                                    contentDescription = "下移",
-                                    tint = if (index < layout.lastIndex) palette.inkSecondary else palette.inkTertiary.copy(alpha = 0.4f),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.KeyboardArrowUp,
+                                        contentDescription = "上移",
+                                        tint = if (index > 0) palette.inkSecondary else palette.inkTertiary.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                                Box(
                                     modifier = Modifier
-                                        .size(22.dp)
+                                        .size(28.dp)
+                                        .clip(RoundedCornerShape(8.dp))
                                         .clickable(enabled = index < layout.lastIndex) { onMove(index, false) },
-                                )
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.KeyboardArrowDown,
+                                        contentDescription = "下移",
+                                        tint = if (index < layout.lastIndex) palette.inkSecondary else palette.inkTertiary.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
                             }
                             Switch(
                                 checked = entry.visible,
@@ -295,7 +316,7 @@ fun MenuSheet(
                                     checkedThumbColor = Color.White,
                                     checkedTrackColor = palette.brand,
                                     uncheckedThumbColor = Color.White,
-                                    uncheckedTrackColor = Color(0x33000000),
+                                    uncheckedTrackColor = anxinDivider(),
                                 ),
                                 modifier = Modifier.padding(start = 4.dp),
                             )
@@ -311,8 +332,8 @@ fun MenuSheet(
                     .fillMaxWidth()
                     .height(46.dp)
                     .clip(RoundedCornerShape(23.dp))
-                    .background(Color(0xFFEFF3FC))
-                    .border(1.dp, Color(0xFFE1E8F5), RoundedCornerShape(23.dp))
+                    .background(anxinField())
+                    .border(1.dp, anxinDivider(), RoundedCornerShape(23.dp))
                     .clickable(onClick = onEditToggle),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
@@ -370,13 +391,13 @@ private fun MenuIcon(
                             )
                         } else {
                             androidx.compose.ui.graphics.Brush.linearGradient(
-                                listOf(Color.White, Color.White),
+                                listOf(anxinField(), anxinSurface()),
                             )
                         }
                     )
                     .border(
                         1.dp,
-                        if (active) Color.White.copy(alpha = 0.7f) else Color(0xFFE4EAF6),
+                        if (active) palette.hairline else anxinDivider(),
                         CircleShape,
                     ),
                 contentAlignment = Alignment.Center,
@@ -384,7 +405,7 @@ private fun MenuIcon(
                 Icon(
                     icon,
                     contentDescription = label,
-                    tint = if (active) Color.White else palette.brand,
+                    tint = if (active) palette.onAccent else palette.brand,
                     modifier = Modifier.size(21.dp),
                 )
             }
@@ -395,7 +416,7 @@ private fun MenuIcon(
                         .align(Alignment.TopEnd)
                         .size(16.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(anxinSurface())
                         .border(1.2.dp, palette.brand, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
