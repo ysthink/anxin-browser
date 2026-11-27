@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Android 12+ 走系统 SplashScreen：
+      · 背景用品牌深色，与 App 内极光首页衔接，不再白闪；
+      · 图标用自适应图标（圆形裁切下本身有底色，视觉完整）；
+      · 系统 splash 结束后仍以 splash_window 兜底，直到 Compose 首帧。
+    -->
+    <style name="Theme.AnxinBrowser" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash_window</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenAnimationDuration">220</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

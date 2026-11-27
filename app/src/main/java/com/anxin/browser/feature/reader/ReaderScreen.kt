@@ -122,6 +122,21 @@ fun ReaderScreen(
             )
             Spacer(Modifier.height(16.dp))
             parsed.paragraphs.forEachIndexed { index, paragraph ->
+                // 抽取脚本用 "## " 标记小标题：正文里的小标题要有独立层级，
+                // 否则整篇看起来是一坨等重量的文字。
+                if (paragraph.startsWith("## ")) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        paragraph.removePrefix("## "),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = palette.ink,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                        fontSize = (17 * fontScale / 100f).sp,
+                        lineHeight = ((17 * fontScale / 100f) * 1.5f).sp,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    return@forEachIndexed
+                }
                 Text(
                     paragraph,
                     style = MaterialTheme.typography.bodyLarge,

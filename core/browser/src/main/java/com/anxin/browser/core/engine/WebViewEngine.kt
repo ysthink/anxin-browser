@@ -56,9 +56,11 @@ class WebViewEngine(
 
     private val views = LinkedHashMap<String, WebView>()
 
-    /** 关闭标签恢复栈（仅记录可恢复的 http(s) 地址）。 */
-    private val closedUrls = ArrayDeque<String>()
+    /** 关闭窗口恢复栈（仅记录可恢复的 http(s) 地址）。 */
+    private val closedUrls = ArrayDeque<BrowserEngine.ClosedEntry>()
     override val closedTabCount: Int get() = closedUrls.size
+    override val closedTabs: List<BrowserEngine.ClosedEntry>
+        get() = closedUrls.toList().asReversed()
 
     // 网页浏览设置（应用到新标签 + 存量标签）
     private var textZoomPercent: Int = 100
@@ -120,7 +122,7 @@ class WebViewEngine(
         if (closing != null && !closing.isIncognito &&
             (closing.url.startsWith("http://") || closing.url.startsWith("https://"))
         ) {
-            closedUrls.addLast(closing.url)
+            closedUrls.addLast(BrowserEngine.ClosedEntry(closing.url, closing.title, System.currentTimeMillis()))
             while (closedUrls.size > 20) closedUrls.removeFirst()
         }
         val remaining = _tabs.value.filterNot { it.id == tabId }
@@ -132,9 +134,18 @@ class WebViewEngine(
     }
 
     override fun restoreLastClosed(): BrowserTab? {
-        val url = closedUrls.removeLastOrNull_()
-        if (url == null) return null
-        return createTab(url)
+        val entry = closedUrls.removeLastOrNull_()
+        if (entry == null) return null
+        return createTab(entry.url)
+    }
+
+    override fun restoreClosed(entry: BrowserEngine.ClosedEntry): BrowserTab? {
+        closedUrls.remove(entry) ?: return null
+        return createTab(entry.url)
+    }
+
+    override fun clearClosedTabs() {
+        closedUrls.clear()
     }
 
     // 会话恢复时记录"待懒加载"的标签：选中时才真正 loadUrl。
@@ -233,7 +244,32 @@ class WebViewEngine(
 
     override fun setForceDark(enabled: Boolean) {
         forceDark = enabled
-        views.values.forEach { it.isForceDarkAllowed = enabled }
+        views.values.forEach { applyDarkMode(it) }
+        // 注意：不在这里 reload。算法深色是否生效取决于宿主 Configuration 的
+        // uiMode（夜间位），而 App 的夜间开关不改 uiMode——此时刷新只会丢掉
+        // 滚动位置却依然白屏。要让网页真正变暗，需要让 Activity 的 uiMode 跟随
+        // 这个开关（会触发 recreate），属于独立一档改造，见 docs 的待办项。
+    }
+
+    /**
+     * 夜间模式要让网页一起暗下来。
+     *
+     * 原来的 `isForceDarkAllowed` 只在"App 主题为浅色 + 系统为深色"的自动判定下才生效，
+     * 而我们是自己实现的夜间开关（不改 App 主题），所以网页始终白底——夜里点开网页就被糊一脸光。
+     * API 33 起用显式的算法深色，29~32 回落到 forceDark 开关。
+     */
+    private fun applyDarkMode(view: WebView) {
+        view.isForceDarkAllowed = forceDark
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            runCatching { view.settings.setAlgorithmicDarkeningAllowed(forceDark) }
+        } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            @Suppress("DEPRECATION")
+            runCatching {
+                view.settings.forceDark =
+                    if (forceDark) android.webkit.WebSettings.FORCE_DARK_ON
+                    else android.webkit.WebSettings.FORCE_DARK_OFF
+            }
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -314,7 +350,7 @@ class WebViewEngine(
             userAgentString = userAgent(desktopMode)
             textZoom = textZoomPercent
         }
-        webView.isForceDarkAllowed = forceDark
+        applyDarkMode(webView)
         webView.addJavascriptInterface(MediaBridge(tabId), "AnxinHost")
 
         webView.webViewClient = object : WebViewClient() {
@@ -403,15 +439,62 @@ class WebViewEngine(
                 userAgent = userAgent,
                 referer = webView.url,
             )
+            // 整页导航到附件（地址栏直接打开一个 .mp4 / .zip）时，WebView 只会留下
+            // 一张白纸——用户既不知道下载有没有开始，也不知道去哪看进度。
+            // 这里给一张明确的落点页，成本很低，但把"是不是坏了"变成"已在下载"。
+            if (webView.url == url) {
+                runCatching {
+                    webView.stopLoading()
+                    // baseURL 用原地址：地址栏继续显示"下载来自哪里"，而不是 about:blank。
+                    webView.loadDataWithBaseURL(url, downloadHintPage(url), "text/html", "utf-8", url)
+                }
+            }
         }
         return webView
+    }
+
+    /** 整页导航触发下载后的替代页面。跟随 App 自己的夜间开关，不依赖系统主题。 */
+    private fun downloadHintPage(url: String): String {
+        val name = url.substringAfterLast('/').substringBefore('?').ifBlank { "文件" }
+            .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        // App 内的夜间模式不改系统主题，所以不能只靠 prefers-color-scheme：
+        // 否则夜里点下载会弹出一张大白页。这里由 forceDark 直接决定配色。
+        val dark = forceDark
+        val bodyBg = if (dark) "#151029" else "#F4F6FC"
+        val fg = if (dark) "#EDEAFF" else "#1B1B2F"
+        val cardBg = if (dark) "rgba(255,255,255,.07)" else "rgba(255,255,255,.74)"
+        val shadow = if (dark) "0 14px 36px rgba(0,0,0,.45)" else "0 14px 36px rgba(60,50,130,.14)"
+        return """
+            <!doctype html><html><head><meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <style>
+              :root{color-scheme:${if (dark) "dark" else "light"}}
+              body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
+                   font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+                   background:$bodyBg;color:$fg}
+              .card{padding:30px 24px;border-radius:24px;max-width:84%;text-align:center;
+                    background:$cardBg;box-shadow:$shadow}
+              .badge{width:56px;height:56px;border-radius:18px;margin:0 auto 18px;
+                     background:linear-gradient(135deg,#5B6CFF,#8B5CF6);display:flex;
+                     align-items:center;justify-content:center;font-size:26px;color:#fff}
+              h1{font-size:18px;margin:0 0 10px;font-weight:600}
+              p{font-size:13px;line-height:1.7;margin:0;opacity:.72;word-break:break-all}
+            </style></head><body>
+              <div class="card">
+                <div class="badge">&#8595;</div>
+                <h1>已开始下载</h1>
+                <p>$name</p>
+                <p style="margin-top:10px">进度见通知栏，或从「菜单 &rarr; 我的下载」查看。</p>
+              </div>
+            </body></html>
+        """.trimIndent()
     }
 
     private fun update(tabId: String, block: (BrowserTab) -> BrowserTab) {
         _tabs.value = _tabs.value.map { if (it.id == tabId) block(it) else it }
     }
 
-    private fun ArrayDeque<String>.removeLastOrNull_(): String? =
+    private fun ArrayDeque<BrowserEngine.ClosedEntry>.removeLastOrNull_(): BrowserEngine.ClosedEntry? =
         if (isEmpty()) null else removeLast()
 
     /** 页面层嗅探桥：接收注入脚本上报的媒体资源。 */
@@ -498,21 +581,85 @@ class WebViewEngine(
         })();
         """
 
-        /** 阅读模式正文抽取：标题 + 长段落聚合，段落不足时回退整页文本，返回 JSON。 */
+        /**
+         * 阅读模式正文抽取。
+         *
+         * 做法：
+         * 1) 给所有候选容器打分（段落文本量 × 非链接比例 ÷ 嵌套复杂度），取分最高者作为正文根；
+         * 2) 从正文根按文档顺序收集块级文本，跳过脚本/导航/侧栏/隐藏节点；
+         * 3) 按 class/id 关键字过滤广告、分享、评论、相关阅读等样板块；
+         * 4) 文本去重，并丢掉与 `document.title` 重复的首个标题（阅读页自己会渲染标题）。
+         *
+         * 小标题用 `## ` 前缀返回，交给阅读页按标题样式渲染。
+         */
         const val READER_SCRIPT = """
         (function(){
           try {
-            var paras = [];
-            var nodes = document.querySelectorAll('p, h1, h2, h3, h4, li, div[class*="para"], article');
-            for (var i = 0; i < nodes.length; i++) {
-              var t = (nodes[i].innerText || '').trim();
-              if (t.length >= 24) paras.push(t);
+            var BOILER = /(^|[-_\s])(ad|ads|adv|adsense|advert|advertisement|sponsor|promo|banner|share|sharebar|comment|comments|related|recommend|sidebar|side|footer|nav|navbar|menu|breadcrumb|cookie|popup|modal|subscribe|newsletter|toolbar|pagination)([-_\s]|\d|${'$'})/i;
+            var SKIP = {SCRIPT:1,STYLE:1,NOSCRIPT:1,IFRAME:1,FORM:1,BUTTON:1,NAV:1,HEADER:1,FOOTER:1,ASIDE:1,SELECT:1,TEXTAREA:1,SVG:1,CANVAS:1};
+
+            function boiler(el) {
+              var cur = el, depth = 0;
+              while (cur && cur !== document.body && depth < 5) {
+                var cls = (cur.className && cur.className.toString) ? cur.className.toString() : '';
+                var id = cur.id || '';
+                if (BOILER.test(cls) || BOILER.test(id)) return true;
+                cur = cur.parentElement; depth++;
+              }
+              return false;
             }
-            var text = paras.join('\n\n');
+            function hidden(el) {
+              if (el.getClientRects().length === 0) return true;
+              var st = window.getComputedStyle(el);
+              return st.display === 'none' || st.visibility === 'hidden' || parseFloat(st.opacity || '1') < 0.05;
+            }
+
+            // 1) 选正文根
+            var best = null, bestScore = 0;
+            var cands = document.querySelectorAll('article, main, section, div');
+            for (var i = 0; i < cands.length; i++) {
+              var c = cands[i];
+              if (SKIP[c.tagName] || boiler(c) || hidden(c)) continue;
+              var ps = c.querySelectorAll('p');
+              if (!ps.length) continue;
+              var textLen = 0;
+              for (var j = 0; j < ps.length; j++) textLen += (ps[j].innerText || '').trim().length;
+              if (textLen < 120) continue;
+              var all = (c.innerText || '').length || 1;
+              var linkLen = 0, as = c.querySelectorAll('a');
+              for (var k = 0; k < as.length; k++) linkLen += (as[k].innerText || '').length;
+              var density = Math.min(linkLen / all, 0.9);
+              var complexity = c.querySelectorAll('div').length;
+              var score = textLen * (1 - density) / (1 + Math.log(complexity + 1));
+              if (score > bestScore) { bestScore = score; best = c; }
+            }
+            var root = best || document.body;
+
+            // 2) 收集块级文本
+            var out = [], seen = {};
+            var title = (document.title || '').trim();
+            var blocks = root.querySelectorAll('h1, h2, h3, h4, p, li, blockquote, pre');
+            for (var m = 0; m < blocks.length; m++) {
+              var el = blocks[m];
+              var tag = el.tagName;
+              if (SKIP[tag] || boiler(el) || hidden(el)) continue;
+              if (el.querySelector('p, li, blockquote')) continue;   // 只取最内层，避免重复
+              var t = (el.innerText || '').replace(/[ \t]+\n/g, '\n').trim();
+              if (!t) continue;
+              var isHeading = (tag === 'H1' || tag === 'H2' || tag === 'H3' || tag === 'H4');
+              if (!isHeading && t.length < 12) continue;
+              if (isHeading && t.length <= 60 && (t === title || seen[t])) continue;  // 标题已在页面头部
+              if (seen[t]) continue;
+              seen[t] = 1;
+              out.push(isHeading ? ('## ' + t) : t);
+            }
+
+            var text = out.join('\n\n');
             if (text.length < 400) {
-              text = (document.body.innerText || '').replace(/\n{3,}/g, '\n\n').slice(0, 20000);
+              text = (root.innerText || document.body.innerText || '')
+                .replace(/\n{3,}/g, '\n\n').trim();
             }
-            return JSON.stringify({title: document.title || '', text: text.slice(0, 20000)});
+            return JSON.stringify({title: title, text: text.slice(0, 20000)});
           } catch (e) { return null; }
         })();
         """

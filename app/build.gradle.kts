@@ -37,8 +37,8 @@ android {
         applicationId = "com.anxin.browser"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 11
+        versionName = "0.3.8"
         buildConfigField("boolean", "USE_CHROMIUM_KERNEL", useChromiumKernel.toString())
         buildConfigField("String", "KERNEL_ABI", "\"${kernelAbi ?: "universal"}\"")
         if (useChromiumKernel && kernelAbi != null) {

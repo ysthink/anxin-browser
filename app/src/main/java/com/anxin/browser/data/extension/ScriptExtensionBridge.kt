@@ -135,11 +135,137 @@ class ScriptExtensionBridge(private val context: Context) : ExtensionKernelBridg
     fun scriptsFor(url: String): List<String> =
         _extensions.value
             .filter { it.enabled && it.script.isNotBlank() && urlMatches(url, it.matches) }
-            .map { ext ->
-                val flag = "__anxin_ext_${ext.id}"
-                "(function(){ try{ if(window['$flag']) return; window['$flag']=1; }catch(e){}\n" +
-                    ext.script + "\n})();"
-            }
+            .map { ext -> wrapScript(ext) }
+
+    /**
+     * 把用户脚本包进一个带 `GM_*` 兼容层的 IIFE。
+     *
+     * 为什么要这一层：油猴脚本的第一行几乎都是 `GM_setValue` / `GM_addStyle`，
+     * 没有垫片就会直接抛 `ReferenceError`，整个脚本一行都不执行。
+     *
+     * 用 IIFE 而不是把函数挂到 window 上，是为了让不同脚本的变量互不污染
+     * （多个脚本同时声明 `var timer` 会互相踩）。存储命名空间按扩展 id 隔离，
+     * 卸载重装同一个脚本仍能读回自己的数据。
+     *
+     * 已知边界：`GM_xmlhttpRequest` 走 `fetch`，跨域仍受 CORS 约束——
+     * 没有 CORS 头的站点会走 `onerror`。这是 WebView 的能力边界，不是实现缺陷。
+     */
+    private fun wrapScript(ext: UserExtension): String {
+        val flag = "__anxin_ext_${ext.id}"
+        // 结构对齐油猴：脚本里普遍读 GM_info.script.name / GM_info.script.version。
+        val meta = JSONObject().apply {
+            put(
+                "script",
+                JSONObject().apply {
+                    put("name", ext.name)
+                    put("version", ext.version)
+                    put("description", ext.description)
+                },
+            )
+            put("scriptHandler", "安心浏览器")
+        }.toString()
+
+        return """
+(function(){
+  try{ if(window['$flag']) return; window['$flag']=1; }catch(e){}
+  var __ns='anxin.gm.${ext.id}', __info=$meta;
+  function __key(k){ return __ns+':'+k; }
+  function GM_getValue(k, d){
+    try{ var r=localStorage.getItem(__key(k)); return r===null?d:JSON.parse(r); }catch(e){ return d; }
+  }
+  function GM_setValue(k, v){
+    try{ localStorage.setItem(__key(k), JSON.stringify(v)); }catch(e){}
+  }
+  function GM_deleteValue(k){ try{ localStorage.removeItem(__key(k)); }catch(e){} }
+  function GM_listValues(){
+    var out=[]; try{
+      for(var i=0;i<localStorage.length;i++){
+        var key=localStorage.key(i);
+        if(key && key.indexOf(__ns+':')===0) out.push(key.substring(__ns.length+1));
+      }
+    }catch(e){}
+    return out;
+  }
+  function GM_addStyle(css){
+    var s=document.createElement('style');
+    s.textContent=css;
+    (document.head||document.documentElement).appendChild(s);
+    return s;
+  }
+  function GM_log(){
+    try{
+      var n=(__info.script && __info.script.name) || '脚本';
+      console.log.apply(console, ['['+n+']'].concat([].slice.call(arguments)));
+    }catch(e){}
+  }
+  function GM_openInTab(u){
+    // WebView 关闭了多窗口，window.open 通常会被拦；退化为当前页跳转。
+    try{ var w=window.open(u,'_blank'); if(w) return {close:function(){try{w.close()}catch(e){}}}; }catch(e){}
+    try{ location.href=u; }catch(e){}
+    return null;
+  }
+  function GM_notification(o){
+    try{
+      if(typeof o === 'string') o={text:o};
+      o=o||{};
+      var title=o.title||(__info.script && __info.script.name)||'通知', body=o.text||'';
+      if(window.Notification && Notification.permission==='granted'){
+        new Notification(title,{body:body});
+      }else{
+        console.log('[通知] '+title+' '+body);
+      }
+    }catch(e){}
+  }
+  function GM_xmlhttpRequest(o){
+    o=o||{};
+    var aborted=false;
+    try{
+      fetch(o.url,{
+        method:(o.method||'GET').toUpperCase(),
+        headers:o.headers||{},
+        body:o.data,
+        credentials:'include'
+      }).then(function(r){
+        return r.text().then(function(t){
+          if(aborted) return;
+          if(o.onload) o.onload({
+            status:r.status, statusText:r.statusText, responseText:t,
+            finalUrl:r.url, readyState:4, responseHeaders:''
+          });
+        });
+      }).catch(function(e){
+        if(!aborted && o.onerror) o.onerror({status:0, error:e});
+      });
+    }catch(e){
+      if(o.onerror) o.onerror({status:0, error:e});
+    }
+    return {abort:function(){ aborted=true; if(o.onabort) o.onabort(); }};
+  }
+  function GM_registerMenuCommand(name, fn){
+    // 目前没有脚本菜单 UI，先存起来，避免脚本因缺少该函数而中断。
+    try{ (window.__anxinMenuCommands=window.__anxinMenuCommands||[]).push({name:name, run:fn}); }catch(e){}
+  }
+  function GM_unregisterMenuCommand(){}
+  function GM_addValueChangeListener(){ return 0; }
+  function GM_removeValueChangeListener(){}
+  var GM = {
+    getValue:function(k,d){ return Promise.resolve(GM_getValue(k,d)); },
+    setValue:function(k,v){ GM_setValue(k,v); return Promise.resolve(); },
+    deleteValue:function(k){ GM_deleteValue(k); return Promise.resolve(); },
+    listValues:function(){ return Promise.resolve(GM_listValues()); },
+    addStyle:GM_addStyle,
+    xmlHttpRequest:GM_xmlhttpRequest,
+    notification:GM_notification,
+    openInTab:GM_openInTab,
+    registerMenuCommand:GM_registerMenuCommand,
+    info:__info
+  };
+  var unsafeWindow = window;
+  var GM_info = __info;
+${ext.script}
+})();
+"""
+    }
 
     // ---------- 解析 ----------
 

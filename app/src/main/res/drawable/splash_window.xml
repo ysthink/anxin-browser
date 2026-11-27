@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  冷启动窗口背景：品牌深底 + 居中标识。
+  目的：MainActivity 首帧前不再露出浅色 window_background，消除冷启动白闪。
+  只在这一两百毫秒内可见，之后 Compose 的极光背景会完全覆盖。
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#FF1B2A55"
+                android:centerColor="#FF12132E"
+                android:endColor="#FF0B0A1F"
+                android:type="linear" />
+        </shape>
+    </item>
+    <item
+        android:width="84dp"
+        android:height="84dp"
+        android:gravity="center">
+        <bitmap
+            android:src="@drawable/ic_splash_logo"
+            android:gravity="fill"
+            android:filter="true" />
+    </item>
+</layer-list>

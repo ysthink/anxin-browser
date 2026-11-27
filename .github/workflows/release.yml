@@ -1,0 +1,120 @@
+name: Release
+
+# FlClash 式发版：打 tag（v*）推送 → 自动构建签名 → 创建 GitHub Release
+# 资产命名：anxin-v<版本>-release.apk + SHA256SUMS
+# Release 描述第一行嵌入更新元数据（App 内检查更新据此判断新版本）
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Ensure Android SDK (compileSdk 36)
+        run: |
+          if [ ! -d "$ANDROID_HOME/platforms/android-36" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" > /dev/null
+          fi
+          if [ ! -d "$ANDROID_HOME/build-tools/36.0.0" ]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0" > /dev/null || true
+          fi
+
+      - name: Restore signing config
+        env:
+          ANXIN_KEYSTORE_BASE64: ${{ secrets.ANXIN_KEYSTORE_BASE64 }}
+          ANXIN_STORE_PASSWORD: ${{ secrets.ANXIN_STORE_PASSWORD }}
+          ANXIN_KEY_ALIAS: ${{ secrets.ANXIN_KEY_ALIAS }}
+          ANXIN_KEY_PASSWORD: ${{ secrets.ANXIN_KEY_PASSWORD }}
+        run: |
+          mkdir -p keystore
+          echo "$ANXIN_KEYSTORE_BASE64" | base64 -d > keystore/anxin-release.jks
+          cat > keystore.properties <<EOF
+          storeFile=$GITHUB_WORKSPACE/keystore/anxin-release.jks
+          storePassword=$ANXIN_STORE_PASSWORD
+          keyAlias=$ANXIN_KEY_ALIAS
+          keyPassword=$ANXIN_KEY_PASSWORD
+          EOF
+          echo "签名配置已就绪"
+
+      - name: Extract version info
+        id: ver
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VC=$(grep -oP 'versionCode = \K\d+' app/build.gradle.kts)
+          APK="anxin-v$TAG-release.apk"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VC" >> "$GITHUB_OUTPUT"
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
+          echo "版本: v$TAG (versionCode=$VC)"
+
+      - name: Build release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Rename APK and generate checksums
+        id: pack
+        run: |
+          APK_NAME="${{ steps.ver.outputs.apk }}"
+          cp app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          SHA=$(sha256sum "$APK_NAME" | cut -d' ' -f1)
+          {
+            echo "sha256=$SHA"
+          } >> "$GITHUB_OUTPUT"
+          sha256sum "$APK_NAME" > SHA256SUMS
+          echo "APK: $APK_NAME  SHA256: $SHA"
+
+      - name: Compose release body
+        id: body
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+          VC: ${{ steps.ver.outputs.version_code }}
+          SHA: ${{ steps.pack.outputs.sha256 }}
+        run: |
+          {
+            echo "<!--ANXIN-UPDATE {\"versionCode\":$VC,\"sha256\":\"$SHA\",\"forceUpdate\":false}-->"
+            echo ""
+            NOTES=$(git tag -l "${GITHUB_REF_NAME}" --format='%(contents)' | sed '/^\s*-----BEGIN PGP SIGNATURE-----/,$d')
+            if [ -n "$NOTES" ]; then
+              echo "$NOTES"
+            else
+              echo "## 安心浏览器 v$TAG"
+              echo ""
+              echo "- 稳定性与体验优化"
+            fi
+            echo ""
+            echo "---"
+            echo "安装包校验（SHA-256）：\`$SHA\`"
+          } > release-body.md
+          cat release-body.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 安心浏览器 v${{ steps.ver.outputs.tag }}
+          body_path: release-body.md
+          draft: false
+          prerelease: false
+          files: |
+            ${{ steps.ver.outputs.apk }}
+            SHA256SUMS
+
+      - name: Clean keystore
+        if: always()
+        run: rm -f keystore/anxin-release.jks keystore.properties

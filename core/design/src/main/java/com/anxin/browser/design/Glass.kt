@@ -131,19 +131,20 @@ fun GlassIconButton(
     modifier: Modifier = Modifier,
     size: Dp = 40.dp,
     iconTint: Color = AnxinPalette.ink,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     Box(
         modifier = modifier
             .size(size)
             .glassPanel(radius = size / 2, alpha = 0.5f, borderAlpha = 0.8f, shadowElevation = 8.dp)
-            .clickable(onClick = onClick),
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = iconTint,
+            tint = iconTint.copy(alpha = if (enabled) 1f else 0.35f),
             modifier = Modifier.size(size * 0.48f),
         )
     }
@@ -386,6 +387,8 @@ fun GlassSegments(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    paddingStart: Dp = 16.dp,
+    paddingEnd: Dp = 16.dp,
 ) {
     Row(
         modifier = modifier
@@ -393,9 +396,13 @@ fun GlassSegments(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // 留白放在滚动容器内部，这样"滚到最右"时最后一个胶囊也不会贴死在屏幕边缘
+        // （高 DPI 机型上曾在真机被裁掉右圆角）。
+        Spacer(Modifier.width(paddingStart))
         labels.forEachIndexed { index, label ->
             GlassSegment(label, selectedIndex == index) { onSelect(index) }
         }
+        Spacer(Modifier.width(paddingEnd))
     }
 }
 
@@ -410,7 +417,12 @@ fun AnxinEmptyState(
     onAction: () -> Unit = {},
 ) {
     Column(
-        modifier = modifier.fillMaxWidth().glassPanel(radius = AnxinShapes.lg, alpha = 0.5f),
+        // 必须有上下内边距：原先为 0 时，hint 文字的下缘直接压在玻璃卡片描边上，
+        // 看起来像"文字溢出卡片"。
+        modifier = modifier
+            .fillMaxWidth()
+            .glassPanel(radius = AnxinShapes.lg, alpha = 0.5f)
+            .padding(horizontal = 20.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         IconBubble(icon, AnxinPalette.brand, size = 56.dp)

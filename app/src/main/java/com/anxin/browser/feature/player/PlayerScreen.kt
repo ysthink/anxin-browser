@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -125,6 +128,15 @@ fun PlayerScreen(
         }
     }
 
+    // 双击左右半屏快退/快进，浏览器播放器的基线手势。
+    var seekHint by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(seekHint) {
+        if (seekHint != null) {
+            delay(700)
+            seekHint = null
+        }
+    }
+
     LaunchedEffect(player) {
         while (true) {
             if (player.duration > 0) duration = player.duration
@@ -165,8 +177,40 @@ fun PlayerScreen(
                         0.45f to Color.Black.copy(alpha = 0.18f),
                         1f to Color.Black.copy(alpha = 0.88f),
                     )
-                ),
+                )
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = { offset ->
+                            val forward = offset.x > size.width / 2f
+                            val delta = if (forward) 10_000L else -10_000L
+                            val target = (player.currentPosition + delta)
+                                .coerceIn(0L, if (duration > 0) duration else Long.MAX_VALUE)
+                            player.seekTo(target)
+                            position = target
+                            seekHint = if (forward) "+10 秒" else "-10 秒"
+                        },
+                    )
+                },
         )
+
+        if (seekHint != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(if (seekHint!!.startsWith("+")) 60.dp else (-60).dp, 0.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    seekHint!!,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .padding(horizontal = 18.dp, vertical = 10.dp),
+                )
+            }
+        }
 
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Row(
@@ -213,7 +257,12 @@ fun PlayerScreen(
 
             Spacer(Modifier.weight(1f))
 
-            Column(Modifier.padding(horizontal = 16.dp)) {
+            // 底部留出悬浮操作栏的高度，否则"下载视频"最后一行会被压在栏下面。
+            Column(
+                Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 84.dp),
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,

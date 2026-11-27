@@ -15,9 +15,15 @@ import kotlinx.coroutines.flow.StateFlow
  */
 interface BrowserEngine {
 
+    /** 最近关闭的窗口记录（用于"最近"页展示与恢复）。 */
+    data class ClosedEntry(val url: String, val title: String, val at: Long)
+
     val tabs: StateFlow<List<BrowserTab>>
     val activeTabId: StateFlow<String?>
     val mediaResources: StateFlow<List<MediaResource>>
+
+    /** 关闭的普通窗口（新→旧），供"最近"页展示。 */
+    val closedTabs: List<ClosedEntry>
 
     fun createTab(url: String = "about:blank", incognito: Boolean = false): BrowserTab
     fun closeTab(tabId: String)
@@ -64,6 +70,12 @@ interface BrowserEngine {
     /** 恢复最近关闭的标签（打开新标签），成功返回该标签。 */
     fun restoreLastClosed(): BrowserTab?
     val closedTabCount: Int
+
+    /** 恢复指定的关闭记录（打开新标签），成功返回该标签。 */
+    fun restoreClosed(entry: ClosedEntry): BrowserTab?
+
+    /** 清空"最近关闭"记录。 */
+    fun clearClosedTabs()
 
     /** 进程重启后的会话恢复：重建标签但只加载 [activeIndex] 对应页，其余懒加载。 */
     fun restoreSession(sessions: List<TabSession>, activeIndex: Int): Boolean

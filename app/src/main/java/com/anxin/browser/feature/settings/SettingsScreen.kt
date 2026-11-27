@@ -252,8 +252,20 @@ fun SettingsScreen(
                     .padding(horizontal = 24.dp),
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
             ) {
-                Text("安心浏览器 v0.2.0", style = MaterialTheme.typography.labelSmall, color = palette.inkTertiary)
-                Text("默认 WebView · 可选 Chromium 内核", style = MaterialTheme.typography.labelSmall, color = palette.inkTertiary)
+                Text(
+                    "安心浏览器 v${com.anxin.browser.BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = palette.inkTertiary,
+                )
+                Text(
+                    if (com.anxin.browser.BuildConfig.USE_CHROMIUM_KERNEL) {
+                        "Chromium 内核 · ${com.anxin.browser.BuildConfig.KERNEL_ABI}"
+                    } else {
+                        "系统 WebView 内核"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = palette.inkTertiary,
+                )
             }
 
             Spacer(Modifier.height(120.dp))

@@ -109,7 +109,9 @@ fun MediaScreen(
                 ),
                 selectedIndex = segment,
                 onSelect = { segment = it },
-                modifier = Modifier.padding(horizontal = 18.dp),
+                modifier = Modifier,
+                paddingStart = 18.dp,
+                paddingEnd = 18.dp,
             )
 
             Spacer(Modifier.height(12.dp))
@@ -126,7 +128,8 @@ fun MediaScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 4.dp),
+                    // 底部留出悬浮工具栏的高度，否则最后一条会被胶囊压住。
+                    contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 4.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(shown, key = { it.url }) { res ->

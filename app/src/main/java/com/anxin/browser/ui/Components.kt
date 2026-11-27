@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Tab
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -135,12 +136,13 @@ fun PageTitle(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     count: Int? = null,
+    lightText: Boolean = false,
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = title,
             style = MaterialTheme.typography.headlineMedium,
-            color = AnxinPalette.ink,
+            color = if (lightText) Color(0xFFEDEAFF) else AnxinPalette.ink,
         )
         if (count != null) {
             Spacer(Modifier.size(8.dp))
@@ -161,5 +163,44 @@ fun PageTitle(
             Spacer(Modifier.size(10.dp))
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = AnxinPalette.inkTertiary)
         }
+    }
+}
+
+/**
+ * 品牌标识（圆角渐变方块 + 地球）。
+ *
+ * 统一用 Compose 绘制，不做位图/自适应图标解码——`painterResource` 无法渲染
+ * `mipmap-anydpi-v26/ic_launcher.xml`，会抛
+ * `IllegalArgumentException: Only VectorDrawables and rasterized asset types are supported`。
+ */
+@Composable
+fun BrandMark(
+    size: Int = 60,
+    corner: Int = 18,
+    iconFraction: Float = 0.56f,
+    glass: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(corner.dp)
+    Box(
+        modifier = modifier
+            .size(size.dp)
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(Color(0xFF9FC0FF), Color(0xFF4A6BFF), Color(0xFF7B5CFF))))
+            .then(
+                if (glass) {
+                    Modifier.glassPanel(radius = corner.dp, alpha = 0.28f, borderAlpha = 0.9f, shadowElevation = 18.dp)
+                } else {
+                    Modifier
+                }
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Public,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size((size * iconFraction).dp),
+        )
     }
 }

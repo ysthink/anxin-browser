@@ -10,6 +10,8 @@ import com.anxin.browser.data.HistoryStore
 import com.anxin.browser.data.SessionStore
 import com.anxin.browser.data.SettingsStore
 import com.anxin.browser.data.ShortcutStore
+import com.anxin.browser.data.room.AnxinDatabaseProvider
+import com.anxin.browser.data.room.RoomDownloadStore
 import com.anxin.browser.data.extension.ScriptExtensionBridge
 import kotlinx.coroutines.launch
 
@@ -20,13 +22,20 @@ import kotlinx.coroutines.launch
  * ChromiumEngine 通过反射创建，默认构建不依赖可选 AAR。
  */
 class AppGraph private constructor(context: Context) {
-    val downloads: DownloadRepository = DownloadRepository(context.applicationContext)
-    val settings: SettingsStore = SettingsStore(context.applicationContext)
-    val bookmarksRepo: BookmarksHistoryRepo = BookmarksHistoryRepo(context.applicationContext)
-    val history: HistoryStore = HistoryStore(context.applicationContext)
-    val session: SessionStore = SessionStore(context.applicationContext)
-    val shortcuts: ShortcutStore = ShortcutStore(context.applicationContext)
-    val extensions: ScriptExtensionBridge = ScriptExtensionBridge(context.applicationContext)
+    private val appContext = context.applicationContext
+
+    private val database = AnxinDatabaseProvider.get(appContext)
+
+    val downloads: DownloadRepository = DownloadRepository(
+        context = appContext,
+        store = RoomDownloadStore(database.downloadDao()),
+    )
+    val settings: SettingsStore = SettingsStore(appContext)
+    val bookmarksRepo: BookmarksHistoryRepo = BookmarksHistoryRepo(appContext, database)
+    val history: HistoryStore = HistoryStore(appContext)
+    val session: SessionStore = SessionStore(appContext)
+    val shortcuts: ShortcutStore = ShortcutStore(appContext)
+    val extensions: ScriptExtensionBridge = ScriptExtensionBridge(appContext)
 
     val engine: BrowserEngine = if (BuildConfig.USE_CHROMIUM_KERNEL) {
         createChromiumEngine(context).also { engine ->

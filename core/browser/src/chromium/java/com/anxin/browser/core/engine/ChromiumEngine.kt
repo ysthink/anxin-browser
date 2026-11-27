@@ -67,8 +67,10 @@ class ChromiumEngine(
     private val tabsById = LinkedHashMap<String, AnxinTab>()
     private val unloadedUrls = LinkedHashMap<String, String>()
     private val findResults = HashMap<String, Int>()
-    private val closedUrls = ArrayDeque<String>()
+    private val closedUrls = ArrayDeque<BrowserEngine.ClosedEntry>()
     override val closedTabCount: Int get() = closedUrls.size
+    override val closedTabs: List<BrowserEngine.ClosedEntry>
+        get() = closedUrls.toList().asReversed()
 
     private var textZoomPercent: Int = 100
     private var desktopMode: Boolean = false
@@ -175,7 +177,7 @@ class ChromiumEngine(
         findResults.remove(tabId)
         unloadedUrls.remove(tabId)
         if (closing != null && !closing.isIncognito && isHttpUrl(closing.url)) {
-            closedUrls.addLast(closing.url)
+            closedUrls.addLast(BrowserEngine.ClosedEntry(closing.url, closing.title, System.currentTimeMillis()))
             while (closedUrls.size > 20) closedUrls.removeFirst()
         }
         val remaining = _tabs.value.filterNot { it.id == tabId }
@@ -185,8 +187,17 @@ class ChromiumEngine(
     }
 
     override fun restoreLastClosed(): BrowserTab? {
-        val url = closedUrls.removeLastOrNull() ?: return null
-        return createTab(url)
+        val entry = closedUrls.removeLastOrNull() ?: return null
+        return createTab(entry.url)
+    }
+
+    override fun restoreClosed(entry: BrowserEngine.ClosedEntry): BrowserTab? {
+        closedUrls.remove(entry) ?: return null
+        return createTab(entry.url)
+    }
+
+    override fun clearClosedTabs() {
+        closedUrls.clear()
     }
 
     override fun restoreSession(sessions: List<TabSession>, activeIndex: Int): Boolean {

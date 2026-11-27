@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  仅暴露下载目录：打开已下载文件时用 content:// 分享给其它应用，
+  避免 file:// 在 API 24+ 触发 FileUriExposedException。
+-->
+<paths>
+    <external-files-path
+        name="downloads"
+        path="Download/" />
+    <external-files-path
+        name="update"
+        path="update/" />
+    <cache-path
+        name="images"
+        path="images/" />
+</paths>

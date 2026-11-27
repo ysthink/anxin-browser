@@ -4,4 +4,6 @@
     <color name="window_background_night">#0B0A1F</color>
     <color name="brand_blue">#3D6BFF</color>
     <color name="ic_launcher_background">#4A6BFF</color>
+    <!-- 系统 SplashScreen 背景（Android 12+），与启动图深底一致 -->
+    <color name="splash_background">#12132E</color>
 </resources>

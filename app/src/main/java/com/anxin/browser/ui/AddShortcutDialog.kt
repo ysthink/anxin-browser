@@ -53,6 +53,7 @@ import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.GlassPrimaryButton
 import com.anxin.browser.design.GlassSegments
 import com.anxin.browser.design.anxinField
+import com.anxin.browser.design.imeTap
 import com.anxin.browser.design.glassPanel
 
 /**
@@ -96,6 +97,8 @@ fun AddShortcutDialog(
                 labels = listOf("书签 (${bookmarks.size})", "历史", "新建书签"),
                 selectedIndex = tab,
                 onSelect = { tab = it },
+                paddingStart = 0.dp,
+                paddingEnd = 0.dp,
             )
 
             Spacer(Modifier.height(14.dp))
@@ -275,7 +278,7 @@ private fun LabeledField(
                         cursorBrush = SolidColor(palette.brand),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions.Default,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.imeTap().fillMaxWidth(),
                     )
                     if (value.isEmpty()) {
                         Text(

@@ -48,6 +48,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,11 +56,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,6 +73,7 @@ import com.anxin.browser.core.engine.BrowserEngine
 import com.anxin.browser.core.model.BrowserTab
 import com.anxin.browser.core.util.Urls
 import com.anxin.browser.design.AnxinPalette
+import com.anxin.browser.design.imeTap
 import com.anxin.browser.design.ThinProgressBar
 import com.anxin.browser.design.anxinSurface
 import com.anxin.browser.design.anxinSurfaceMuted
@@ -100,71 +105,75 @@ fun BrowserScreen(
         if (!engine.goBack()) onExit()
     }
 
-    Column(
+    // 工具栏是浮层：网页一直画到屏幕底部，操作栏像胶囊浮在上面，不占页面高度。
+    Box(
         Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(anxinSurface(), anxinSurfaceMuted()))),
     ) {
-        if (!hideTopBars) {
-            Column(Modifier.fillMaxWidth().statusBarsPadding()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    AddressChip(
-                        modifier = Modifier.weight(1f),
-                        title = active?.title ?: "新标签页",
-                        url = active?.url ?: "about:blank",
-                        isIncognito = active?.isIncognito == true,
-                        editing = editing,
-                        input = input,
-                        onInputChange = { input = it },
-                        onClick = {
-                            input = active?.url ?: ""
-                            editing = true
-                        },
-                        onSubmit = {
-                            if (input.isNotBlank()) {
-                                onSearchSubmitted(input)
-                                engine.loadUrl(Urls.normalize(input, searchEngine))
-                            }
-                            editing = false
-                        },
-                    )
+        Column(Modifier.fillMaxSize()) {
+            if (!hideTopBars) {
+                Column(Modifier.fillMaxWidth().statusBarsPadding()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AddressChip(
+                            modifier = Modifier.weight(1f),
+                            title = active?.title ?: "新标签页",
+                            url = active?.url ?: "about:blank",
+                            isIncognito = active?.isIncognito == true,
+                            editing = editing,
+                            input = input,
+                            onInputChange = { input = it },
+                            onClick = {
+                                input = active?.url ?: ""
+                                editing = true
+                            },
+                            onSubmit = {
+                                if (input.isNotBlank()) {
+                                    onSearchSubmitted(input)
+                                    engine.loadUrl(Urls.normalize(input, searchEngine))
+                                }
+                                editing = false
+                            },
+                        )
+                    }
+                }
+
+                Box(Modifier.fillMaxWidth().height(2.dp)) {
+                    if (active?.isLoading == true) {
+                        ThinProgressBar(
+                            progress = (active.progress / 100f).coerceIn(0.04f, 1f),
+                            modifier = Modifier.padding(horizontal = 18.dp),
+                            height = 2.dp,
+                        )
+                    }
                 }
             }
 
-            Box(Modifier.fillMaxWidth().height(2.dp)) {
-                if (active?.isLoading == true) {
-                    ThinProgressBar(
-                        progress = (active.progress / 100f).coerceIn(0.04f, 1f),
-                        modifier = Modifier.padding(horizontal = 18.dp),
-                        height = 2.dp,
-                    )
-                }
-            }
+            AndroidView(
+                factory = { ctx -> FrameLayout(ctx) },
+                update = { container ->
+                    val view = engine.activeContentView() as? View
+                    if (view != null && view.parent !== container) {
+                        (view.parent as? ViewGroup)?.removeView(view)
+                        container.removeAllViews()
+                        container.addView(view)
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
         }
-
-        AndroidView(
-            factory = { ctx -> FrameLayout(ctx) },
-            update = { container ->
-                val view = engine.activeContentView() as? View
-                if (view != null && view.parent !== container) {
-                    (view.parent as? ViewGroup)?.removeView(view)
-                    container.removeAllViews()
-                    container.addView(view)
-                }
-            },
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-        )
 
         AnxinActionBar(
             actions = actions,
             tabCount = tabCount,
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
@@ -182,6 +191,16 @@ private fun AddressChip(
     onSubmit: () -> Unit,
 ) {
     val palette = AnxinPalette
+    // 点地址栏进入编辑态时必须主动抢焦点：新组合出的 BasicTextField
+    // 不会自动聚焦，用户第一次点击只会"变样式不弹键盘"，体验上就是坏的。
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(editing) {
+        if (editing) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
+    }
     Row(
         modifier = modifier
             .height(44.dp)
@@ -206,7 +225,7 @@ private fun AddressChip(
                 cursorBrush = SolidColor(palette.brand),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = { onSubmit() }),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.imeTap().weight(1f).focusRequester(focusRequester),
             )
             Icon(
                 Icons.Rounded.Check,

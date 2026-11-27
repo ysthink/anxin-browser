@@ -70,10 +70,9 @@ import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.anxinField
 import com.anxin.browser.design.anxinSurfaceMuted
 import com.anxin.browser.feature.browser.BrowserScreen
-import com.anxin.browser.feature.bookmarks.BookmarksScreen
 import com.anxin.browser.feature.downloads.DownloadsScreen
 import com.anxin.browser.feature.extensions.ExtensionsScreen
-import com.anxin.browser.feature.history.HistoryScreen
+import com.anxin.browser.feature.saved.SavedScreen
 import com.anxin.browser.feature.home.HomeScreen
 import com.anxin.browser.feature.incognito.IncognitoScreen
 import com.anxin.browser.feature.media.MediaScreen
@@ -81,6 +80,8 @@ import com.anxin.browser.feature.newtab.NewTabScreen
 import com.anxin.browser.feature.player.DEMO_STREAM_URL
 import com.anxin.browser.feature.player.PlayerScreen
 import com.anxin.browser.feature.settings.AboutScreen
+import com.anxin.browser.feature.settings.LicensesScreen
+import com.anxin.browser.feature.settings.PrivacyScreen
 import com.anxin.browser.feature.settings.HomeSettingsScreen
 import com.anxin.browser.feature.settings.PlaySettingsScreen
 import com.anxin.browser.feature.settings.SearchSettingsScreen
@@ -112,7 +113,12 @@ object Routes {
     const val WEB_SETTINGS = "web_settings"
     const val PLAY_SETTINGS = "play_settings"
     const val EXTENSIONS = "extensions"
+
+    /** 扩展中心指定页签：0=我的扩展，1=扩展探索。 */
+    fun extensions(tab: Int): String = "extensions?tab=$tab"
     const val ABOUT = "about"
+    const val PRIVACY = "privacy"
+    const val LICENSES = "licenses"
 
     fun player(url: String): String =
         "player?url=" + URLEncoder.encode(url, "UTF-8")
@@ -145,6 +151,7 @@ fun AnxinNavHost() {
     val doNotTrack by graph.settings.doNotTrack.collectAsStateWithLifecycle(initialValue = true)
     val searchEngine by graph.settings.searchEngine.collectAsStateWithLifecycle(initialValue = Urls.DEFAULT_ENGINE)
     val bookmarks by graph.bookmarksRepo.bookmarks.collectAsStateWithLifecycle(initialValue = emptyList())
+    val bookmarkItems by graph.bookmarksRepo.bookmarkItems.collectAsStateWithLifecycle(initialValue = emptyList())
     val showEngineBar by graph.settings.showEngineBar.collectAsStateWithLifecycle(initialValue = true)
     val textZoom by graph.settings.textZoomPercent.collectAsStateWithLifecycle(initialValue = 100)
     val desktopMode by graph.settings.desktopMode.collectAsStateWithLifecycle(initialValue = false)
@@ -161,6 +168,8 @@ fun AnxinNavHost() {
     val pipEnabled by graph.settings.pipEnabled.collectAsStateWithLifecycle(initialValue = true)
     val history by graph.bookmarksRepo.history.collectAsStateWithLifecycle(initialValue = emptyList())
     val frequent by graph.bookmarksRepo.frequentlyVisited().collectAsStateWithLifecycle(initialValue = emptyList())
+    val recentSites by graph.bookmarksRepo.recentlyVisited().collectAsStateWithLifecycle(initialValue = emptyList())
+    val showShortcutsOnHome by graph.settings.showShortcutsOnHome.collectAsStateWithLifecycle(initialValue = true)
     val searches by graph.history.searches.collectAsStateWithLifecycle(initialValue = emptyList())
 
     var showMenu by remember { mutableStateOf(false) }
@@ -176,6 +185,9 @@ fun AnxinNavHost() {
     // 扩展中心
     val extensions by graph.extensions.observe().collectAsStateWithLifecycle()
     val extDisclaimerShown by graph.settings.extDisclaimerShown.collectAsStateWithLifecycle(initialValue = true)
+    val showExtInMenu by graph.settings.showExtInMenu.collectAsStateWithLifecycle(initialValue = false)
+    // 菜单里点「扩展程序」先弹快捷面板，再决定去管理页还是探索页。
+    var showExtSheet by remember { mutableStateOf(false) }
 
     val extensionImportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent(),
@@ -213,6 +225,16 @@ fun AnxinNavHost() {
 
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 
+    // 网页里点下载时给一句即时反馈：否则直链文件会让页面停在空白页，用户不知道发生了什么。
+    LaunchedEffect(Unit) {
+        graph.downloads.events.collect { name -> toast("开始下载：$name") }
+    }
+
+    // 重复下载被拦下等需要解释的情况。
+    LaunchedEffect(Unit) {
+        graph.downloads.info.collect { text -> toast(text) }
+    }
+
     fun currentTab() = tabs.firstOrNull { it.id == activeTabId }
 
     fun openBrowser(url: String, incognito: Boolean = false) {
@@ -244,13 +266,19 @@ fun AnxinNavHost() {
     LaunchedEffect(Unit) {
         val saved = runCatching { graph.session.read() }.getOrNull()
         if (saved != null && graph.engine.tabs.value.isEmpty()) {
-            graph.engine.restoreSession(saved.first, saved.second)
+            // 下载直链不是"可浏览的页面"：恢复它必然把文件再下一次。
+            val downloadUrls = graph.downloads.items.value.mapTo(HashSet()) { it.url }
+            val restorable = saved.first.filterNot { it.url in downloadUrls }
+            graph.engine.restoreSession(restorable, saved.second)
         }
         sessionReady = true
     }
     LaunchedEffect(tabs, activeTabId) {
         if (!sessionReady) return@LaunchedEffect
-        runCatching { graph.session.save(tabs, activeTabId) }
+        // 同理，保存时也把直链标签剔掉，避免把"只会触发下载的页面"写进下一次会话。
+        val downloadUrls = graph.downloads.items.value.mapTo(HashSet()) { it.url }
+        val restorable = tabs.filterNot { it.url in downloadUrls }
+        runCatching { graph.session.save(restorable, activeTabId) }
     }
 
     // 桌面快捷方式 / 外部链接打开（前台冷热启动都覆盖）
@@ -276,6 +304,15 @@ fun AnxinNavHost() {
 
     fun navigateTo(route: String) {
         navController.navigate(route) { launchSingleTop = true }
+    }
+
+    // 点下载通知进来：直达下载页。
+    val openDownloads by PendingLink.openDownloads.collectAsStateWithLifecycle()
+    LaunchedEffect(openDownloads) {
+        if (openDownloads) {
+            PendingLink.openDownloads.value = false
+            navigateTo(Routes.DOWNLOADS)
+        }
     }
 
     // ---- 菜单动作映射 ----
@@ -328,7 +365,12 @@ fun AnxinNavHost() {
                 graph.settings.setDesktopMode(!desktopMode)
                 toast(if (!desktopMode) "已切换为电脑版" else "已切换为手机版")
             }
-            "extensions" -> navigateTo(Routes.EXTENSIONS)
+            "extensions" -> scope.launch {
+                // 菜单弹层刚被移出组合，同一帧再弹新 ModalBottomSheet 在 MIUI 上
+                // 会被窗口焦点竞态直接 dismiss——错开一帧窗口拆卸时间。
+                kotlinx.coroutines.delay(200)
+                showExtSheet = true
+            }
             "translate" -> {
                 if (tab != null && tab.url.startsWith("http")) {
                     openBrowser(
@@ -406,10 +448,35 @@ fun AnxinNavHost() {
         }
     }
 
+    // 系统返回键统一拦截。不能用 WindowInsets 判断键盘（MIUI + 微信键盘实测：
+    // insets 的 ime 可见性时滞/误报，键盘弹着也可能报 false），改用视图焦点判断：
+    // 输入框持有焦点 → 本次返回只收键盘并清焦点（残留焦点正是“收起后再点不弹
+    // 键盘”的根因）；无焦点 → 正常返回；到根部 → 退出确认，而不是直接退到桌面。
+    val rootView = androidx.compose.ui.platform.LocalView.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    androidx.activity.compose.BackHandler(enabled = true) {
+        val currentRoute = navController.currentDestination?.route
+        if (rootView.findFocus() != null) {
+            android.util.Log.d("AnxinBack", "back@route=$currentRoute -> hide ime (focused)")
+            keyboardController?.hide()
+            focusManager.clearFocus()
+        } else {
+            val popped = navController.popBackStack()
+            android.util.Log.d("AnxinBack", "back@route=$currentRoute popped=$popped")
+            if (!popped) {
+                if (exitConfirm) showExitConfirm = true
+                else context.findActivity()?.finish()
+            }
+        }
+    }
+
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             HomeScreen(
                 shortcuts = shortcuts,
+                recentSites = recentSites,
+                showShortcuts = showShortcutsOnHome,
                 actions = actionsFor(back = {
                     if (exitConfirm) showExitConfirm = true
                     else context.findActivity()?.finish()
@@ -469,7 +536,7 @@ fun AnxinNavHost() {
             TabsScreen(
                 tabs = tabs,
                 activeTabId = activeTabId,
-                closedTabCount = graph.engine.closedTabCount,
+                closed = graph.engine.closedTabs,
                 onBack = { navController.popBackStack() },
                 onSelectTab = { id ->
                     graph.engine.selectTab(id)
@@ -478,23 +545,37 @@ fun AnxinNavHost() {
                 onCloseTab = { graph.engine.closeTab(it) },
                 onNewTab = { navigateTo(Routes.SEARCH) },
                 onNewIncognito = { navigateTo(Routes.INCOGNITO) },
-                onClearAll = {
-                    tabs.forEach { graph.engine.closeTab(it.id) }
-                    toast("已清空全部标签")
+                onClearTabs = {
+                    tabs.filterNot { it.isIncognito }.forEach { graph.engine.closeTab(it.id) }
+                    toast("已关闭全部窗口")
                 },
-                onRestore = {
+                onClearIncognito = {
+                    graph.engine.closeAllIncognito()
+                    toast("已关闭全部无痕窗口")
+                },
+                onClearClosed = {
+                    graph.engine.clearClosedTabs()
+                    toast("已清空最近关闭")
+                },
+                onRestoreClosed = { entry ->
+                    val restored = graph.engine.restoreClosed(entry)
+                    if (restored != null) {
+                        navController.navigate(Routes.BROWSER) { launchSingleTop = true }
+                    } else toast("该窗口已不存在")
+                },
+                onRestoreLast = {
                     val restored = graph.engine.restoreLastClosed()
                     if (restored != null) {
                         navController.navigate(Routes.BROWSER) { launchSingleTop = true }
-                    } else toast("没有可恢复的标签")
+                    } else toast("没有可恢复的窗口")
                 },
-                actions = actionsFor(back = { navController.popBackStack() }),
             )
         }
 
         composable(Routes.DOWNLOADS) {
             DownloadsScreen(
                 items = downloads,
+                media = mediaResources,
                 onBack = { navController.popBackStack() },
                 onOpenFolder = {
                     runCatching {
@@ -505,7 +586,13 @@ fun AnxinNavHost() {
                     }
                 },
                 onPause = { graph.downloads.pause(it) },
+                onResume = { graph.downloads.resume(it) },
+                onDelete = { id ->
+                    graph.downloads.remove(id)
+                    toast("已删除该条下载")
+                },
                 onClearFinished = { graph.downloads.clearFinished() },
+                onPlayMedia = { res -> navigateTo(Routes.player(res.url)) },
                 actions = actionsFor(back = { navController.popBackStack() }),
             )
         }
@@ -563,12 +650,31 @@ fun AnxinNavHost() {
                 onBack = { navController.popBackStack() },
                 onDownload = {
                     val url = entry.urlArg() ?: DEMO_STREAM_URL
-                    graph.downloads.enqueue(
-                        url = url,
-                        mimeType = "application/vnd.apple.mpegurl",
-                        suggestedName = "视频_${System.currentTimeMillis()}.m3u8",
-                    )
-                    toast("已加入下载队列")
+                    // 扩展名要跟着源走：之前一律按 HLS 存成 .m3u8，
+                    // 直接播 mp4 时下回来的文件扩展名和内容对不上，系统播放器打不开。
+                    val ext = url.substringAfterLast('/').substringBefore('?')
+                        .substringAfterLast('.', "").lowercase()
+                    if (ext == "m3u8" || ext == "mpd") {
+                        toast("暂不支持 HLS/DASH 分片下载")
+                    } else {
+                        val safeExt = ext.takeIf {
+                            it in setOf("mp4", "m4v", "mkv", "webm", "mov", "flv", "ts")
+                        } ?: "mp4"
+                        val mime = when (safeExt) {
+                            "webm" -> "video/webm"
+                            "mkv" -> "video/x-matroska"
+                            "mov" -> "video/quicktime"
+                            "flv" -> "video/x-flv"
+                            "ts" -> "video/mp2t"
+                            else -> "video/mp4"
+                        }
+                        graph.downloads.enqueue(
+                            url = url,
+                            mimeType = mime,
+                            suggestedName = "视频_${System.currentTimeMillis()}.$safeExt",
+                        )
+                        toast("已加入下载队列")
+                    }
                 },
                 actions = actionsFor(back = { navController.popBackStack() }),
                 tabCount = tabs.size,
@@ -578,7 +684,10 @@ fun AnxinNavHost() {
         composable(Routes.INCOGNITO) {
             IncognitoScreen(
                 onBack = { navController.popBackStack() },
-                onStart = { openBrowser("https://www.bing.com", incognito = true) },
+                // 直接搜索/输入网址：以无痕标签打开，不再有"开始无痕浏览"按钮层。
+                onSearch = { query ->
+                    openBrowser(Urls.normalize(query, searchEngine), incognito = true)
+                },
                 actions = actionsFor(back = { navController.popBackStack() }),
                 tabCount = tabs.size,
             )
@@ -618,33 +727,63 @@ fun AnxinNavHost() {
         }
 
         composable(Routes.BOOKMARKS) {
-            BookmarksScreen(
-                bookmarks = bookmarks,
-                onBack = { navController.popBackStack() },
+            SavedScreen(
+                initialPage = 0,
+                bookmarks = bookmarkItems,
+                history = history,
+                onClose = { navController.popBackStack() },
                 onOpen = { url -> openBrowser(url) },
-                onRemove = { url ->
+                onRemoveBookmark = { url ->
                     scope.launch {
                         graph.bookmarksRepo.removeBookmark(url)
                         toast("已删除书签")
                     }
                 },
-                actions = actionsFor(back = { navController.popBackStack() }),
-            )
-        }
-
-        composable(Routes.HISTORY) {
-            HistoryScreen(
-                entries = history,
-                onBack = { navController.popBackStack() },
-                onOpen = { url -> openBrowser(url) },
-                onRemove = { url -> scope.launch { graph.bookmarksRepo.removeHistory(url) } },
-                onClear = {
+                onRemoveHistory = { url -> scope.launch { graph.bookmarksRepo.removeHistory(url) } },
+                onClearHistory = {
                     scope.launch {
                         graph.bookmarksRepo.clearHistory()
                         toast("已清空历史")
                     }
                 },
-                actions = actionsFor(back = { navController.popBackStack() }),
+                // 保存页手动添加：标题可留空（自动取网址），分组可选或新建。
+                onAddBookmark = { title, url, group ->
+                    scope.launch {
+                        graph.bookmarksRepo.addBookmark(title, url, group)
+                        toast("已添加书签")
+                    }
+                },
+                canAddBookmark = true,
+            )
+        }
+
+        composable(Routes.HISTORY) {
+            SavedScreen(
+                initialPage = 1,
+                bookmarks = bookmarkItems,
+                history = history,
+                onClose = { navController.popBackStack() },
+                onOpen = { url -> openBrowser(url) },
+                onRemoveBookmark = { url ->
+                    scope.launch {
+                        graph.bookmarksRepo.removeBookmark(url)
+                        toast("已删除书签")
+                    }
+                },
+                onRemoveHistory = { url -> scope.launch { graph.bookmarksRepo.removeHistory(url) } },
+                onClearHistory = {
+                    scope.launch {
+                        graph.bookmarksRepo.clearHistory()
+                        toast("已清空历史")
+                    }
+                },
+                onAddBookmark = { title, url, group ->
+                    scope.launch {
+                        graph.bookmarksRepo.addBookmark(title, url, group)
+                        toast("已添加书签")
+                    }
+                },
+                canAddBookmark = true,
             )
         }
 
@@ -664,26 +803,49 @@ fun AnxinNavHost() {
         composable(Routes.ABOUT) {
             AboutScreen(
                 onBack = { navController.popBackStack() },
-                onCheckUpdate = { toast("当前已是最新版本 v0.3.0") },
-                onPrivacy = {
-                    toast("书签/历史/下载仅存本机，无痕关闭即清空")
-                },
-                onLicenses = {
-                    toast("Chromium BSD-3 · AndroidX/Compose Apache-2.0 · Room Apache-2.0")
-                },
+                onPrivacy = { navigateTo(Routes.PRIVACY) },
+                onLicenses = { navigateTo(Routes.LICENSES) },
             )
         }
 
-        composable(Routes.EXTENSIONS) {
+        composable(Routes.PRIVACY) {
+            PrivacyScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.LICENSES) {
+            LicensesScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = "extensions?tab={tab}",
+            arguments = listOf(
+                androidx.navigation.navArgument("tab") {
+                    type = androidx.navigation.NavType.IntType
+                    defaultValue = 0
+                },
+            ),
+        ) { entry ->
             ExtensionsScreen(
                 extensions = extensions,
                 showDisclaimer = !extDisclaimerShown,
+                initialTab = entry.arguments?.getInt("tab") ?: 0,
+                showExtInMenu = showExtInMenu,
                 onBack = { navController.popBackStack() },
                 onImport = { extensionImportLauncher.launch("*/*") },
                 onToggle = { id, enabled -> scope.launch { graph.extensions.setEnabled(id, enabled) } },
                 onPin = { id, pinned -> scope.launch { graph.extensions.setPinned(id, pinned) } },
                 onDelete = { id -> scope.launch { graph.extensions.remove(id) } },
                 onDisclaimerAccept = { scope.launch { graph.settings.setExtDisclaimerShown() } },
+                onShowExtInMenuChange = { enabled ->
+                    scope.launch {
+                        graph.settings.setShowExtInMenu(enabled)
+                        toast(if (enabled) "菜单将显示常用扩展" else "菜单常用扩展已关闭")
+                    }
+                },
+                onOpenStore = { url ->
+                    openBrowser(url)
+                    toast("获取页面已打开：下载 .user.js 或 zip 后回扩展中心导入")
+                },
                 actions = actionsFor(back = { navController.popBackStack() }),
             )
         }
@@ -693,9 +855,11 @@ fun AnxinNavHost() {
                 mode = homepageMode,
                 customHomepage = customHomepage,
                 wallpaperIndex = wallpaperIndex,
+                showShortcuts = showShortcutsOnHome,
                 onModeChange = { mode -> scope.launch { graph.settings.setHomepageMode(mode) } },
                 onCustomHomepageChange = { url -> scope.launch { graph.settings.setCustomHomepage(url) } },
                 onWallpaperChange = { index -> scope.launch { graph.settings.setWallpaperIndex(index) } },
+                onShowShortcutsChange = { enabled -> scope.launch { graph.settings.setShowShortcutsOnHome(enabled) } },
                 onBack = { navController.popBackStack() },
             )
         }
@@ -749,6 +913,23 @@ fun AnxinNavHost() {
 
     // ---- 全局弹层 ----
 
+    // 菜单「扩展程序」快捷面板：装了几个、启停一下，或跳管理/探索。
+    if (showExtSheet) {
+        com.anxin.browser.feature.extensions.ExtQuickSheet(
+            extensions = extensions,
+            onDismiss = { showExtSheet = false },
+            onToggle = { id, enabled -> scope.launch { graph.extensions.setEnabled(id, enabled) } },
+            onManageMine = {
+                showExtSheet = false
+                navigateTo(Routes.extensions(0))
+            },
+            onExplore = {
+                showExtSheet = false
+                navigateTo(Routes.extensions(1))
+            },
+        )
+    }
+
     readerJson?.let { json ->
         Box(Modifier.fillMaxSize()) {
             com.anxin.browser.feature.reader.ReaderScreen(rawJson = json) {
@@ -785,7 +966,12 @@ fun AnxinNavHost() {
                 if (nightMode) add("night")
                 if (fullscreenMode) add("fullscreen")
                 if (desktopMode) add("desktop")
+                // 无痕与阅读模式也反映开关状态，让菜单项能看到"已选中"。
+                if (currentTab()?.isIncognito == true) add("incognito")
+                if (readerJson != null) add("reading")
             },
+            // 菜单显示常用扩展：只露出固定（pinned）的扩展，开关即启停。
+            commonExtensions = if (showExtInMenu) extensions.filter { it.pinned } else emptyList(),
             onDismiss = {
                 menuEditing = false
                 showMenu = false
@@ -797,6 +983,9 @@ fun AnxinNavHost() {
             },
             onMove = { index, up -> moveMenu(index, up) },
             onToggleVisible = { id, visible -> toggleMenuVisible(id, visible) },
+            onToggleCommonExtension = { id, enabled ->
+                scope.launch { graph.extensions.setEnabled(id, enabled) }
+            },
             onShare = {
                 shareUrl(context, menuUrl)
                 showMenu = false

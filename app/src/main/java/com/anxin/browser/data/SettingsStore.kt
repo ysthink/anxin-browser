@@ -37,6 +37,7 @@ class SettingsStore(private val context: Context) {
         val homepageMode = stringPreferencesKey("homepage_mode")
         val customHomepage = stringPreferencesKey("custom_homepage")
         val wallpaper = intPreferencesKey("wallpaper_index")
+        val showShortcutsOnHome = booleanPreferencesKey("show_shortcuts_on_home")
         // 播放设置
         val playDynamicVideo = booleanPreferencesKey("play_dynamic_video")
         val backgroundPlay = booleanPreferencesKey("background_play")
@@ -45,6 +46,8 @@ class SettingsStore(private val context: Context) {
         val menuLayout = stringPreferencesKey("menu_layout_v1")
         // 扩展中心：免责声明是否已确认
         val extDisclaimer = booleanPreferencesKey("ext_disclaimer_shown")
+        // 菜单底部是否展示常用扩展快捷行
+        val showExtInMenu = booleanPreferencesKey("show_ext_in_menu")
     }
 
     val adBlockEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.adBlock] ?: true }
@@ -71,6 +74,7 @@ class SettingsStore(private val context: Context) {
     val homepageMode: Flow<String> = context.dataStore.data.map { it[Keys.homepageMode] ?: "default" }
     val customHomepage: Flow<String> = context.dataStore.data.map { it[Keys.customHomepage] ?: "" }
     val wallpaperIndex: Flow<Int> = context.dataStore.data.map { it[Keys.wallpaper] ?: 0 }
+    val showShortcutsOnHome: Flow<Boolean> = context.dataStore.data.map { it[Keys.showShortcutsOnHome] ?: true }
 
     // 播放设置
     val playDynamicVideo: Flow<Boolean> = context.dataStore.data.map { it[Keys.playDynamicVideo] ?: false }
@@ -82,6 +86,7 @@ class SettingsStore(private val context: Context) {
 
     // 扩展中心
     val extDisclaimerShown: Flow<Boolean> = context.dataStore.data.map { it[Keys.extDisclaimer] ?: false }
+    val showExtInMenu: Flow<Boolean> = context.dataStore.data.map { it[Keys.showExtInMenu] ?: false }
 
     private fun decodeMenu(raw: String?): List<MenuEntry> {
         val parsed = runCatching {
@@ -147,6 +152,8 @@ class SettingsStore(private val context: Context) {
     suspend fun setHomepageMode(mode: String) = context.dataStore.edit { it[Keys.homepageMode] = mode }
     suspend fun setCustomHomepage(url: String) = context.dataStore.edit { it[Keys.customHomepage] = url }
     suspend fun setWallpaperIndex(index: Int) = context.dataStore.edit { it[Keys.wallpaper] = index }
+    suspend fun setShowShortcutsOnHome(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.showShortcutsOnHome] = enabled }
     suspend fun setPlayDynamicVideo(enabled: Boolean) = context.dataStore.edit { it[Keys.playDynamicVideo] = enabled }
     suspend fun setBackgroundPlay(enabled: Boolean) = context.dataStore.edit { it[Keys.backgroundPlay] = enabled }
     suspend fun setAutoMiniWindow(enabled: Boolean) = context.dataStore.edit { it[Keys.autoMiniWindow] = enabled }
@@ -164,6 +171,7 @@ class SettingsStore(private val context: Context) {
     }
 
     suspend fun setExtDisclaimerShown() = context.dataStore.edit { it[Keys.extDisclaimer] = true }
+    suspend fun setShowExtInMenu(enabled: Boolean) = context.dataStore.edit { it[Keys.showExtInMenu] = enabled }
 
     /** 恢复默认设置：清除所有持久化配置，保留用户数据（书签/历史/下载）。 */
     suspend fun resetAll() = context.dataStore.edit { it.clear() }

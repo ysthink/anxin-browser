@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import com.anxin.browser.core.util.Urls
 import com.anxin.browser.data.HistoryEntry
 import com.anxin.browser.design.AnxinPalette
+import com.anxin.browser.design.imeTap
 import com.anxin.browser.design.AuroraBackground
 import com.anxin.browser.design.anxinField
 import com.anxin.browser.design.GlassIconButton
@@ -322,7 +323,7 @@ private fun SearchField(
             cursorBrush = SolidColor(palette.brand),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.imeTap().weight(1f),
             decorationBox = { inner ->
                 if (query.isEmpty()) {
                     Text("搜索或输入网址", style = MaterialTheme.typography.bodyMedium, color = palette.inkTertiary)

@@ -72,6 +72,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.anxin.browser.design.AnxinPalette
 import com.anxin.browser.design.anxinDivider
 import com.anxin.browser.design.anxinField
@@ -96,13 +97,13 @@ object MenuActions {
         Spec("reading", "阅读模式", Icons.Rounded.MenuBook),
         Spec("images", "看图模式", Icons.Rounded.Image),
         Spec("fullscreen", "全屏模式", Icons.Rounded.Fullscreen),
-        Spec("desktop", "访问电脑版", Icons.Rounded.Computer),
+        Spec("desktop", "电脑版", Icons.Rounded.Computer),
         Spec("extensions", "扩展程序", Icons.Rounded.Extension),
         Spec("sniff", "资源嗅探", Icons.Rounded.Theaters),
         Spec("translate", "网页翻译", Icons.Rounded.Language),
-        Spec("addToDesktop", "添加到桌面", Icons.Rounded.AddToHomeScreen),
+        Spec("addToDesktop", "加到桌面", Icons.Rounded.AddToHomeScreen),
         Spec("find", "页面查找", Icons.Rounded.FindInPage),
-        Spec("saveOffline", "保存离线网页", Icons.Rounded.SaveAlt),
+        Spec("saveOffline", "离线保存", Icons.Rounded.SaveAlt),
         Spec("textSize", "文字大小", Icons.Rounded.TextFields),
         Spec("admark", "广告标记", Icons.Rounded.Block),
         Spec("print", "网页打印", Icons.Rounded.Print),
@@ -124,11 +125,13 @@ fun MenuSheet(
     layout: List<MenuEntry>,
     editing: Boolean,
     activeIds: Set<String> = emptySet(),
+    commonExtensions: List<com.anxin.browser.data.extension.UserExtension> = emptyList(),
     onDismiss: () -> Unit,
     onAction: (String) -> Unit,
     onEditToggle: () -> Unit,
     onMove: (index: Int, up: Boolean) -> Unit,
     onToggleVisible: (id: String, visible: Boolean) -> Unit,
+    onToggleCommonExtension: (id: String, enabled: Boolean) -> Unit = { _, _ -> },
     onShare: () -> Unit,
     onSettings: () -> Unit,
 ) {
@@ -225,23 +228,85 @@ fun MenuSheet(
             if (!editing) {
                 // ---- 常态：可见项网格 ----
                 val visible = layout.filter { it.visible }.mapNotNull { entry -> MenuActions.spec(entry.id) }
-                visible.chunked(4).forEach { row ->
+                visible.chunked(5).forEach { row ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
+                        // 每格固定 1/5 行宽：不足五个的尾行靠左对齐、列与上行对齐，不再居中悬空。
                         row.forEach { spec ->
-                            MenuIcon(
-                                label = spec.label,
-                                icon = spec.icon,
-                                active = spec.id in activeIds,
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.Center,
                             ) {
-                                onDismiss()
-                                onAction(spec.id)
+                                MenuIcon(
+                                    label = spec.label,
+                                    icon = spec.icon,
+                                    active = spec.id in activeIds,
+                                ) {
+                                    onDismiss()
+                                    onAction(spec.id)
+                                }
                             }
                         }
+                        repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                     Spacer(Modifier.height(10.dp))
+                }
+
+                // ---- 常用扩展快捷行（设置里开启「菜单显示常用扩展」后出现）----
+                // 只展示用户固定（pinned）的扩展：常用性由用户自己定义，
+                // 不固定 = 不打扰。点开关直接启停，长路径变短路径。
+                if (commonExtensions.isNotEmpty()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "常用扩展",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = palette.inkTertiary,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    commonExtensions.forEach { ext ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(anxinField())
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Rounded.Extension,
+                                contentDescription = null,
+                                tint = palette.brand,
+                                modifier = Modifier.size(17.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    ext.name,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (ext.enabled) palette.ink else palette.inkTertiary,
+                                    maxLines = 1,
+                                )
+                                Text(
+                                    if (ext.enabled) "已启用" else "已停用",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = palette.inkTertiary,
+                                )
+                            }
+                            Switch(
+                                checked = ext.enabled,
+                                onCheckedChange = { onToggleCommonExtension(ext.id, it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = palette.brand,
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = anxinDivider(),
+                                ),
+                                modifier = Modifier.padding(start = 4.dp),
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
                 }
             } else {
                 // ---- 编辑态：全项排序 + 显隐 ----
@@ -366,7 +431,7 @@ private fun MenuIcon(
     val palette = AnxinPalette
     Column(
         modifier = Modifier
-            .width(70.dp)
+            .width(62.dp)
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
@@ -375,7 +440,7 @@ private fun MenuIcon(
         Box(contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(42.dp)
                     .shadow(
                         elevation = if (active) 8.dp else 5.dp,
                         shape = CircleShape,
@@ -433,6 +498,7 @@ private fun MenuIcon(
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
+            fontSize = 10.sp,
             color = if (active) palette.brandDeep else palette.ink.copy(alpha = 0.92f),
             fontWeight = FontWeight.Medium,
             maxLines = 1,
