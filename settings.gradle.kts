@@ -1,8 +1,8 @@
 // CI（GitHub Actions）在海外，直连官方源；本地走阿里云镜像加速。
-// GitHub Actions 自动注入 CI=true。
-val inCi = System.getenv("CI") == "true"
-
+// GitHub Actions 自动注入 CI=true。注意 pluginManagement 是独立编译块，
+// 不能引用外部变量，判断需写在块内。
 pluginManagement {
+    val inCi = System.getenv("CI") == "true"
     repositories {
         if (inCi) {
             google()
@@ -21,6 +21,7 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    val inCi = System.getenv("CI") == "true"
     repositories {
         if (inCi) {
             google()
