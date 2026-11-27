@@ -1,95 +1,85 @@
-# 安心浏览器 · Android 客户端（v0.1 骨架）
+<div align="center">
 
-基于《安心浏览器：技术选型与开发实施方案》与 `ui.png` 设计稿落地的第一版可运行工程。
+<img src=".github/assets/logo.png" width="128" alt="安心浏览器"/>
 
-当前版本的目标是**把"浏览器外壳 + 业务骨架"先跑通**：UI 全部按液态玻璃设计稿实现，
-浏览器内核以 Android WebView 作为第一阶段的临时实现，并通过统一接口与上层解耦，
-后续替换为 Titanium / Chromium 时不需要改动业务与界面代码。
+# 安心浏览器
 
-## 一、已实现内容
+**更安全 · 更流畅 · 更好用 的 Android 浏览器**
 
-| 页面 | 说明 |
-| --- | --- |
-| 首页 | 壁纸 Hero、玻璃搜索栏、快捷网站、今日推荐、快捷工具、媒体速览 |
-| 标签页 | 全部 / 无痕分组、标签卡片、新建与关闭、空状态 |
-| 扩展中心 | 分类切换、推荐横幅、扩展安装 / 启停、本地导入入口 |
-| 下载管理 | 下载中 / 已完成 / 资源库、进度、暂停、清空记录 |
-| 播放器 | Media3 ExoPlayer + HLS、自绘玻璃控制层、倍速、画中画、下载入口 |
-| 设置（我的） | 账号卡、广告过滤开关、隐私 / 无痕 / 扩展 / 下载等入口 |
-| 无痕浏览 | 深色液态玻璃页、隐私三提示、一键进入无痕标签 |
-| 网页浏览 | 真实 WebView 浏览、地址栏编辑、进度条、菜单面板、返回键接管 |
-| AI 助手 | 会话式界面骨架（模型服务待接入） |
-| 媒体嗅探 | 页面层脚本嗅探 video/audio/媒体直链，写入统一资源模型 |
+基于 Jetpack Compose 打造，本地优先、不收集浏览数据，内置油猴脚本扩展引擎
 
-功能层面可行的部分都是真实可用的：网页浏览、下载（系统 DownloadManager）、
-播放器（ExoPlayer）、设置持久化（DataStore）、标签管理（多 WebView 实例）。
+[![Release](https://img.shields.io/github/v/release/ysthink/anxin-browser?color=orange&label=release)](https://github.com/ysthink/anxin-browser/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/ysthink/anxin-browser/total?color=green&label=downloads)](https://github.com/ysthink/anxin-browser/releases)
+[![License](https://img.shields.io/github/license/ysthink/anxin-browser?color=blue)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/ysthink/anxin-browser/release.yml?label=release%20CI)](../../actions)
 
-运行截图见 `docs/screenshots/`（Pixel 9 1080×2424 实机模拟器截取）：
-`01-home` 首页、`02-tabs` 标签页、`03-extensions` 扩展中心、`04-downloads` 下载管理、
-`05-settings` 设置、`06-incognito` 无痕浏览、`07-player` 播放器。
+[下载安装](#-下载安装) · [功能亮点](#-功能亮点) · [应用内更新](#-应用内更新) · [从源码构建](#-从源码构建)
 
-## 二、工程结构
+<img src=".github/assets/shots/01-home.png" width="220"/> <img src=".github/assets/shots/02-browser.png" width="220"/> <img src=".github/assets/shots/06-dark-home.png" width="220"/>
 
-```
-anxin-browser/
-├── app/                      # 应用入口、导航、各功能页面
-│   └── src/main/java/com/anxin/browser/
-│       ├── MainActivity.kt
-│       ├── AppGraph.kt               # 轻量服务定位器（可换 Hilt）
-│       ├── nav/AnxinNavHost.kt       # 路由与页面装配
-│       ├── ui/Components.kt          # 底部玻璃导航栏等公共 UI
-│       ├── data/                     # SettingsStore / ExtensionStore
-│       └── feature/                  # home / tabs / extensions / downloads
-│                                     # player / settings / incognito / ai / browser
-├── core/
-│   ├── design/               # 液态玻璃设计系统（主题、玻璃面板、极光背景）
-│   └── browser/              # 内核抽象层：BrowserEngine、WebViewEngine、
-│                             # TabManager 模型、媒体资源模型、下载仓库
-└── artwork/                  # 生成的设计素材原图（壁纸 / 视频首帧）
-```
+</div>
 
-### 内核解耦约定
+## ✨ 功能亮点
 
-`core/browser` 只暴露 `BrowserEngine` 接口：
+- **隐私本地优先** — 书签、历史、下载记录全部保存在本机；无痕标签关闭后不落盘；不含第三方统计 SDK
+- **油猴脚本扩展** — 内置用户脚本引擎：支持 Greasyfork 在线安装、本地导入、脚本开关管理，兼容 `GM_*` 常用 API
+- **双内核架构** — 默认系统 WebView 轻量发行（约 4MB）；可选自嵌 Chromium 内核版（`-PuseChromiumKernel=true`）
+- **完整的下载体验** — 前台服务保活断点续传、下载转存公共 Download 目录、媒体库聚合（文档/视频/压缩包）
+- **视频增强** — 网页视频资源嗅探、倍速/手势/双击快进、画中画
+- **阅读模式** — 自动提取正文，护眼排版
+- **夜间模式** — 全站适配的语义色令牌系统
+- **多窗口 & 无痕** — 多标签管理、无痕模式沉浸体验
+- **应用内更新** — GitHub Releases 驱动：检查更新、下载进度、SHA256 完整性校验、覆盖安装
 
-```kotlin
-createTab() / closeTab() / selectTab()
-loadUrl() / goBack() / goForward() / reload() / stopLoading()
-clearBrowsingData() / clearMediaResources() / destroy()
-```
+## 📱 更多截图
 
-`WebViewEngine` 是当前实现。接入 Titanium 时新增 `ChromiumEngine : BrowserEngine`，
-在 `AppGraph` 中替换一行即可，UI 与业务层零改动。
+<div align="center">
+<table>
+  <tr>
+    <td><img src=".github/assets/shots/03-menu.png" width="200"/></td>
+    <td><img src=".github/assets/shots/04-extensions.png" width="200"/></td>
+    <td><img src=".github/assets/shots/05-settings.png" width="200"/></td>
+  </tr>
+  <tr>
+    <td align="center">功能菜单</td>
+    <td align="center">扩展探索</td>
+    <td align="center">设置中心</td>
+  </tr>
+</table>
+</div>
 
-## 三、构建与运行
+## 📥 下载安装
+
+前往 [**Releases**](https://github.com/ysthink/anxin-browser/releases/latest) 下载最新 `anxin-vX.Y.Z-release.apk` 直接安装（Android 8.0+）。
+
+> 下载后建议核对 SHA256（每个 Release 附带 `SHA256SUMS`）。
+
+## 🔄 应用内更新
+
+App 内置更新检查（**设置 → 关于 → 检查更新**，启动时也会每 24 小时静默检查一次）：
+
+1. 请求 GitHub `releases/latest`，按 `versionCode` 判断新版本
+2. 发现新版本弹窗展示更新说明，确认后自动下载（带进度）
+3. SHA256 校验通过后拉起系统安装器，覆盖升级
+
+发版流程（维护者）：修改 `versionCode`/`versionName` → 推送 → 打 `v*` tag，GitHub Actions 自动构建签名并发布 Release，详见 [.github/workflows/release.yml](.github/workflows/release.yml)。
+
+## 🛠 从源码构建
 
 ```bash
-# 环境：JDK 17、Android SDK Platform 34 + Build-Tools 34.0.0
-# sdk 路径写在 local.properties（该文件不入库）
+git clone https://github.com/ysthink/anxin-browser.git
+cd anxin-browser
 
-./gradlew :app:assembleDebug
-# 产物：app/build/outputs/apk/debug/app-debug.apk
+# WebView 变体（日常发行版，约 4MB）
+./gradlew :app:assembleRelease
 
-./gradlew :app:installDebug   # 已连接设备时直接安装
+# 自嵌 Chromium 内核变体（需先按构建脚本生成内核 so 到 app/src/chromium/jniLibs）
+./gradlew :app:assembleRelease -PuseChromiumKernel=true -PkernelAbi=arm64-v8a
 ```
 
-依赖通过阿里云 Maven 镜像拉取（`settings.gradle.kts` 已配置），
-在无法访问 Google Maven 的网络环境也能构建。
+- 最低支持 Android 8.0（minSdk 26），目标 Android 14（targetSdk 34）
+- 技术栈：Kotlin · Jetpack Compose · Material 3 · Room · DataStore · Coil · Media3
 
-## 四、当前边界（有意保留的缺口）
+## 📄 开源协议
 
-1. **Chrome 扩展不能真正运行**：WebView 没有 Extension Runtime。扩展中心的安装、
-   启停、本地 ZIP/CRX 导入均为管理入口，等 Chromium 底座接入后接管。
-2. **无痕隔离是近似实现**：不写缓存、不记历史、退出清理，但 Cookie 未做进程级隔离；
-   Chromium 的 OTR Profile 才能做到真正的数据分离。
-3. **资源嗅探仅覆盖页面层**：注入脚本监听 `video/audio/source` 与媒体直链；
-   HLS/DASH 分片合并、内核网络观察需要 Chromium 网络栈支持。
-4. **AI 助手为界面骨架**：会话、建议、输入链路已通，未接入模型服务。
-5. 下载中心在没有真实任务时展示演示数据（页面内已标明），真实下载会替换演示列表。
-
-## 五、下一步建议（对应方案文档阶段二 / 三）
-
-- 用 Titanium 编译出首个 APK，先跑通方案里的 9 项内核验证清单，再决定底座。
-- 内核接口保持不变的前提下，补 `TabPersistence`（会话恢复）与书签/历史 Room 表。
-- 把 `MediaSniffer` 从页面脚本升级为独立模块，接入内核网络观察 + HLS/DASH 解析。
-- UI 侧补充：菜单面板、书签页、历史页、设置二级页。
+本项目基于 [GPL-3.0](LICENSE) 协议开源。
